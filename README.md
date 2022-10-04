@@ -9,3 +9,5 @@ Shader_Draw    -- The vertex/geometry/fragment shader for
                   drawing the grid to the screen.
                   
 Shader_Tool    -- To be replaced.
+
+Requires dotnet 6.0.0
