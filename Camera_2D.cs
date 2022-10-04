@@ -7,13 +7,13 @@ namespace GPU_Of_Life;
 
 public class Camera_2D
 {
-    private Matrix4 GRID__PROJECTION;
+    internal Matrix4 GRID__PROJECTION = Matrix4.Identity;
     private float GRID__PROJECTION__ZOOM__EXP = 1f;
     private float GRID__PROJECTION__ZOOM__LOG_INTERVAL = 2;
     private float GRID__PROJECTION__ZOOM = 1f;
     private float GRID__PROJECTION__WIDTH, GRID__PROJECTION__HEIGHT;
 
-    private Matrix4 GRID__TRANSLATION;
+    internal Matrix4 GRID__TRANSLATION = Matrix4.Identity;
     private Vector2 GRID__TRANSLATION__POINT = new Vector2();
     private float GRID__TRANSLATION__X
         => GRID__TRANSLATION__POINT.X;
@@ -24,6 +24,13 @@ public class Camera_2D
     {
         GRID__PROJECTION__WIDTH  = (size.X / (float)size.Y) + 1;
         GRID__PROJECTION__HEIGHT = (size.Y / (float)size.X) + 1;
+        GRID__PROJECTION = 
+            Matrix4.CreateOrthographic
+            (
+                GRID__PROJECTION__WIDTH * GRID__PROJECTION__ZOOM, 
+                GRID__PROJECTION__HEIGHT * GRID__PROJECTION__ZOOM, 
+                0, 1
+            );
     }
 
     public void Process__Scroll(MouseWheelEventArgs e)
@@ -93,6 +100,7 @@ public class Camera_2D
                 (float)Math.Max(w_min, Math.Min(w_max, nTranslation.X)),
                 (float)Math.Max(h_min, Math.Min(h_max, nTranslation.Y))
             );
+        Matrix4 translation = Matrix4.CreateTranslation(GRID__TRANSLATION__X, GRID__TRANSLATION__Y, 0);
 
         mouse__last_frame = mouse;
         //Console.WriteLine($"MOUSE: {mouse}");
