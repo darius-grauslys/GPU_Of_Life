@@ -4,6 +4,7 @@ using Gwen.Net.OpenTk;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
+using MouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 
 namespace GPU_Of_Life;
 
@@ -18,6 +19,16 @@ public class Program : Test__Window //GameWindow
     private readonly Shader SHADER__COMPUTE;
     [AllowNull]
     private readonly Shader SHADER__DRAW;
+
+    [AllowNull]
+    private readonly Shader SHADER__TOOL__STENCIL;
+    private byte TOOL__STENCIL__VALUE = 255;
+    private int history__length = 100;
+    private int history__current_index = 0;
+    private int TOOL__FRAMEBUFFER;
+
+    private int stencil_vao;
+    private int stencil_vbo;
 
     private int VAO__CELL_POINTS;
     private int VBO__CELL_POINTS;
@@ -46,8 +57,9 @@ public class Program : Test__Window //GameWindow
     [AllowNull]
     private Texture GRID__TEXTURE__WRITE;
 
-    private bool GRID__IS_ACTIVE = false;
+    private bool GRID__IS_ACTIVE   = false;
     private bool GRID__IS_STEPPING = false;
+    private bool GRID__IS_INITIAL  = true;
     private double GRID__DELAY__MS = 0;
     private const double GRID__DELAY__SEC_INTERVAL = 0.5;
 
@@ -59,6 +71,16 @@ public class Program : Test__Window //GameWindow
     public Program() 
     //: base(GameWindowSettings.Default, NativeWindowSettings.Default)
     {
+        GRID__FRAMEBUFFER__COMPUTE = GL.GenFramebuffer();
+        TOOL__FRAMEBUFFER = GL.GenFramebuffer();
+
+        stencil_vao = GL.GenVertexArray();
+        GL.BindVertexArray(stencil_vao);
+        stencil_vbo = GL.GenBuffer();
+        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
+        Private_Clear__Stencil_History();
+        GL.BindVertexArray(0);
+
         BASE__VIEWPORT = new Viewport(Size);
         GLHelper.Push_Viewport(BASE__VIEWPORT);
 
@@ -101,6 +123,16 @@ public class Program : Test__Window //GameWindow
 
         if (err) { Close(); return; }
 
+        SHADER__TOOL__STENCIL =
+            new Shader.Factory()
+            .Begin()
+            .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Tool__Stencil__Vertex.vert", ref err)
+            .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Tool__Stencil__Fragment.frag", ref err)
+            .Link()
+            ;
+
+        if (err) { Close(); return; }
+
         Private_Establish__Grid();
     }
 
@@ -119,6 +151,14 @@ public class Program : Test__Window //GameWindow
             case Keys.F6:
                 GRID__IS_STEPPING = true;
                 break;
+            //case Keys.U:
+            //    if (e.Control || e.Command)
+            //        Private_Undo__Tool();
+            //    break;
+            //case Keys.R:
+            //    if (e.Control || e.Command)
+            //        Private_Redo__Tool();
+            //    break;
         }
     }
 
@@ -141,6 +181,9 @@ public class Program : Test__Window //GameWindow
                 GRID__DELAY__MS = GRID__DELAY__SEC_INTERVAL * speed_level + 0.1; 
                 GRID__DELAY__MS *= GRID__DELAY__MS; 
             };
+
+        UI.Updated__Stencil_Value +=
+            (stencil_value) => TOOL__STENCIL__VALUE = stencil_value;
     }
 
     protected override void OnResize(OpenTK.Windowing.Common.ResizeEventArgs e)
@@ -179,8 +222,68 @@ public class Program : Test__Window //GameWindow
         GRID__CAMERA.Process__Scroll(e);
     }
 
+    protected override void OnMouseDown(OpenTK.Windowing.Common.MouseButtonEventArgs e)
+    {
+        base.OnMouseDown(e);
+        Private_Process__Tool();
+    }
+
+    Vector2 mouse_previous = new Vector2(-1);
+    protected override void OnMouseMove(OpenTK.Windowing.Common.MouseMoveEventArgs e)
+    {
+        base.OnMouseMove(e);
+        Private_Process__Tool();
+    }
+
+    private void Private_Process__Tool()
+    {
+        if (!MouseState.IsButtonDown(MouseButton.Left)) { Private_Clear__Stencil_History(); return; }
+        if (mouse_previous == MousePosition) return;
+        mouse_previous = MousePosition;
+
+        Vector4 tool_position = GRID__CAMERA.Get__Mouse_To_World(MousePosition);
+
+        if (history__current_index >= history__length)
+            Private_Clear__Stencil_History();
+
+        if (history__current_index == 0)
+        {
+            Private_Buffer__Point(ref tool_position);
+            history__current_index++;
+        }
+        Private_Buffer__Point(ref tool_position);
+        history__current_index++;
+    }
+
+    private void Private_Buffer__Point(ref Vector4 tool_position)
+    {
+        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
+        GL.BufferSubData
+        (
+            BufferTarget.ArrayBuffer, 
+            new IntPtr(history__current_index * 2 * sizeof(float)),
+            sizeof(float) * 2,
+            new float[] { tool_position.X, tool_position.Y }
+        );
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+    }
+
+    private void Private_Clear__Stencil_History()
+    {
+        history__current_index = 0;
+        GL.BindVertexArray(stencil_vao);
+        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
+        GL.BufferData(BufferTarget.ArrayBuffer, history__length * 2 * sizeof(float), IntPtr.Zero, BufferUsageHint.StreamDraw);
+        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, 0);
+        GL.EnableVertexAttribArray(0);
+        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+    }
+
     private void Private_Establish__Grid(Grid_Configuration? grid_configuration = null)
     {
+        GRID__IS_ACTIVE = false;
+        GRID__IS_STEPPING = false;
+        GRID__IS_INITIAL = true;
         GRID__WIDTH  = grid_configuration?.Width  ?? 50;
         GRID__HEIGHT = grid_configuration?.Height ?? 50;
 
@@ -236,6 +339,16 @@ public class Program : Test__Window //GameWindow
                 base_pixel_initalizer
             );
 
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
+        GL.FramebufferTexture2D
+        (
+            FramebufferTarget.Framebuffer,
+            FramebufferAttachment.ColorAttachment0,
+            TextureTarget.Texture2D,
+            GRID__TEXTURE__BASE.TEXTURE_HANDLE,
+            0
+        );
+
         GRID__TEXTURE0 =
             new Texture
             (
@@ -256,7 +369,7 @@ public class Program : Test__Window //GameWindow
         GRID__TEXTURE__READ  = GRID__TEXTURE0;
         GRID__TEXTURE__WRITE = GRID__TEXTURE1;
 
-        Private_Resize__Grid();
+        Private_Reset__Grid_Swap();
     }
 
     private void Private_Reset__Grid_Swap()
@@ -268,6 +381,7 @@ public class Program : Test__Window //GameWindow
 
     private void Private_Reset__Grid()
     {
+        GRID__IS_INITIAL = true;
         if (GRID__CONFIGURATION.Is__Using_New_Seed__For_Each_Reset)
         {
             GRID__TEXTURE__BASE.Pixel_Buffer_Initalizer.Seed = new Random().Next();
@@ -297,25 +411,20 @@ public class Program : Test__Window //GameWindow
         //GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }
 
-    private void Private_Resize__Grid()
-    {
-        if (GRID__FRAMEBUFFER__COMPUTE != 0)
-        {
-            GL.DeleteFramebuffer(GRID__FRAMEBUFFER__COMPUTE);
-        }
-
-        //TODO: Console.WriteLine("might need to set viewport for this \\/\\/\\/");
-        GRID__FRAMEBUFFER__COMPUTE = GL.GenFramebuffer();
-
-        Private_Reset__Grid_Swap();
-    }
-
     private void Private_Render__Grid
     (
         int viewport_width,
         int viewport_height
     )
     {
+        GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
+        SHADER__TOOL__STENCIL.Use();
+        GL.Uniform1(SHADER__TOOL__STENCIL.Get__Uniform("life"), TOOL__STENCIL__VALUE / 255f);
+        GL.BindVertexArray(stencil_vao);
+        GL.DrawArrays(PrimitiveType.LineStrip, 0, history__current_index);
+        GLHelper.Pop_Viewport();
+
         //if (GRID__IS_ACTIVE)
         //    Console.WriteLine("ACTIVE");
         //if (GRID__IS_STEPPING)
@@ -328,6 +437,7 @@ public class Program : Test__Window //GameWindow
         if (!GRID__IS_ACTIVE && !GRID__IS_STEPPING) goto render_grid;
         if (GRID__IS_STEPPING) GRID__IS_STEPPING = false;
         else if (TIME__ELAPSED < GRID__DELAY__MS) goto render_grid;
+        GRID__IS_INITIAL = false;
         TIME__ELAPSED = 0;
         
         GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
@@ -349,9 +459,11 @@ render_grid:
         GL.BindTexture
         (
             TextureTarget.Texture2D, 
-            (GRID__IS_ACTIVE) 
-            ? GRID__TEXTURE__WRITE.TEXTURE_HANDLE
-            : GRID__TEXTURE__READ.TEXTURE_HANDLE
+            (GRID__IS_INITIAL) 
+            ? GRID__TEXTURE__BASE.TEXTURE_HANDLE
+            : (GRID__IS_ACTIVE)
+                ? GRID__TEXTURE__WRITE.TEXTURE_HANDLE
+                : GRID__TEXTURE__READ.TEXTURE_HANDLE
         );
         SHADER__DRAW.Use();
         //GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)viewport_width);
@@ -390,6 +502,20 @@ render_grid:
             GRID__TEXTURE__WRITE.TEXTURE_HANDLE,
             0
         );
+
+        if (GRID__IS_INITIAL)
+            GRID__TEXTURE__READ = GRID__TEXTURE__BASE;
+
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
+        GL.FramebufferTexture2D
+        (
+            FramebufferTarget.Framebuffer,
+            FramebufferAttachment.ColorAttachment0,
+            TextureTarget.Texture2D,
+            GRID__TEXTURE__READ.TEXTURE_HANDLE,
+            0
+        );
+
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }
 

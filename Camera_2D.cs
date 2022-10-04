@@ -7,6 +7,12 @@ namespace GPU_Of_Life;
 
 public class Camera_2D
 {
+    private Vector2 FOCAL__SIZE;
+    private float FOCAL__WIDTH
+        => FOCAL__SIZE.X;
+    private float FOCAL__HEIGHT
+        => FOCAL__SIZE.Y;
+
     internal Matrix4 GRID__PROJECTION = Matrix4.Identity;
     private float GRID__PROJECTION__ZOOM__EXP = 1f;
     private float GRID__PROJECTION__ZOOM__LOG_INTERVAL = 2;
@@ -14,7 +20,7 @@ public class Camera_2D
     private float GRID__PROJECTION__WIDTH, GRID__PROJECTION__HEIGHT;
 
     internal Matrix4 GRID__TRANSLATION = Matrix4.Identity;
-    private Vector2 GRID__TRANSLATION__POINT = new Vector2();
+    internal Vector2 GRID__TRANSLATION__POINT = new Vector2();
     private float GRID__TRANSLATION__X
         => GRID__TRANSLATION__POINT.X;
     private float GRID__TRANSLATION__Y
@@ -22,6 +28,8 @@ public class Camera_2D
 
     public void Resize__Focal_Size(Vector2 size)
     {
+        FOCAL__SIZE = size;
+
         GRID__PROJECTION__WIDTH  = (size.X / (float)size.Y) + 1;
         GRID__PROJECTION__HEIGHT = (size.Y / (float)size.X) + 1;
         GRID__PROJECTION = 
@@ -46,6 +54,15 @@ public class Camera_2D
                 GRID__PROJECTION__ZOOM__EXP
             );
         GRID__PROJECTION__ZOOM -= 1;
+
+        GRID__PROJECTION = 
+            Matrix4.CreateOrthographic
+            (
+                GRID__PROJECTION__WIDTH * GRID__PROJECTION__ZOOM, 
+                GRID__PROJECTION__HEIGHT * GRID__PROJECTION__ZOOM, 
+                0, 1
+            );
+
         //Console.WriteLine(GRID__PROJECTION__ZOOM);
         //Console.WriteLine($"delta:{e.Offset} norm:{normalize_delta}");
         //Console.WriteLine($"zoom: {GRID__PROJECTION__ZOOM} zoom__exp: {GRID__PROJECTION__ZOOM__EXP} delta: {delta}");
@@ -100,11 +117,25 @@ public class Camera_2D
                 (float)Math.Max(w_min, Math.Min(w_max, nTranslation.X)),
                 (float)Math.Max(h_min, Math.Min(h_max, nTranslation.Y))
             );
-        Matrix4 translation = Matrix4.CreateTranslation(GRID__TRANSLATION__X, GRID__TRANSLATION__Y, 0);
+        GRID__TRANSLATION = Matrix4.CreateTranslation(GRID__TRANSLATION__X, GRID__TRANSLATION__Y, 0);
 
         mouse__last_frame = mouse;
         //Console.WriteLine($"MOUSE: {mouse}");
         //Console.WriteLine($"w_min: {w_min} w_max: {w_max} h_min: {h_min} h_max: {h_max}");
         //Console.WriteLine($"pos: {GRID__TRANSLATION} nPos: {nTranslation} delta: {delta}");
+    }
+
+    public Vector4 Get__Mouse_To_World(Vector2 mouse_position)
+    {
+        Matrix4 projection_inverted =
+            (GRID__PROJECTION).Inverted();
+
+        Vector4 v4_mouse_pos = new Vector4(mouse_position.X / FOCAL__WIDTH, 1 - mouse_position.Y / FOCAL__HEIGHT, 0, 0.5f) * 2;
+        v4_mouse_pos += new Vector4(-1,-1,0,0);
+
+        v4_mouse_pos = (projection_inverted * v4_mouse_pos);
+        v4_mouse_pos = (Matrix4.Transpose(GRID__TRANSLATION).Inverted()) * v4_mouse_pos;
+
+        return v4_mouse_pos;
     }
 }

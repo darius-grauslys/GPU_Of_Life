@@ -23,6 +23,7 @@ public class Gwen_UI : ControlBase
     public event Action<int, int>? Render__Grid;
 
     public event Action<float>? Updated__Compute_Speed;
+    public event Action<byte>? Updated__Stencil_Value;
 
     public Gwen_UI
     (
@@ -92,6 +93,14 @@ public class Gwen_UI : ControlBase
         new Label(bar) { Text = "Simulation Speed: " };
 
         _seed = new Label(bar) { Dock = Dock.Left };
+
+        NumericUpDown_AsInt stencil_strength = new NumericUpDown_AsInt(bar) { Min = 0, Max = 255 };
+        stencil_strength.Size = new Size(100, (int)(simulation_speed.Height * 1.5f));
+        stencil_strength.Value = 255;
+        stencil_strength
+            .ValueChanged += (s,e) => Updated__Stencil_Value?.Invoke((byte)stencil_strength.Value);
+
+        new Label(bar) { Text = "Stencil Strength: " };
     }
 
     protected override void Render(Gwen.Net.Skin.SkinBase skin)
@@ -211,7 +220,6 @@ public class Gwen_UI : ControlBase
             { Text = "Cancel", Dock = Dock.Right }
             .Clicked += (s,e) => dialog.Close();
 
-        is__random_or_direct.IsChecked = true;
         dialog.Show();
     }
 

@@ -1,5 +1,6 @@
 
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -57,9 +58,12 @@ layout(location = 1) in vec2 aTexCoord;
 
 out vec2 TexCoord;
 
+uniform mat4 projection;
+uniform mat4 translation;
+
 void main()
 {
-    gl_Position = vec4(aPosition, 1);
+    gl_Position = projection * translation * vec4(aPosition, 1);
     TexCoord = aTexCoord;
 }
 ";
@@ -90,8 +94,16 @@ void main()
         if (err) Close();
     }
 
-    protected void RENDER__DEFAULT(int? texture = null)
+    protected void RENDER__DEFAULT
+    (
+        int? texture = null,
+        Matrix4? nullable_projection = null,
+        Matrix4? nullable_translation = null
+    )
     {
+        Matrix4 projection  = nullable_projection  ?? Matrix4.Identity;
+        Matrix4 translation = nullable_translation ?? Matrix4.Identity; 
+
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         if (texture != null)
         {
@@ -99,6 +111,8 @@ void main()
             GL.BindTexture(TextureTarget.Texture2D, (int)texture);
         }
         SHADER__DEFAULT.Use();
+        GL.UniformMatrix4(SHADER__DEFAULT.Get__Uniform("projection"), false, ref projection);
+        GL.UniformMatrix4(SHADER__DEFAULT.Get__Uniform("translation"), false, ref translation);
         GL.BindVertexArray(SCREEN_RECT__VAO);
         GL.DrawElements(PrimitiveType.Triangles, SCREEN_RECT__ELEMENTS.Length, DrawElementsType.UnsignedInt, 0);
     }

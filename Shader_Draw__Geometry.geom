@@ -58,10 +58,12 @@ void main()
     vec2 cell_size = get_cell_size(1.9);
     vec4 out_pos = get_grid_position(1, cell, cell_size);
 
-    emit(out_pos, cell_size, vec4(0.05, 0.05, 0.05, 1));
-
     float life = texelFetch(_sample, ivec2(int(cell.x), int(cell.y)), 0).x;
-    float mod = 1 - (1 - life);
+    float mod = 1 - (0.9 - (life * 0.9));
+    float signature = 0.05;
+    if (life > 0) signature = 0.15;
+
+    emit(out_pos, cell_size, vec4(0.05, 0.05, signature, 1));
 
     cell_size = get_cell_size(mod);
     out_pos = get_grid_position(mod, cell, cell_size);
