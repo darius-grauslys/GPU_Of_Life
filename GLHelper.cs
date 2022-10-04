@@ -21,12 +21,17 @@ public class Viewport
         width = size.X;
         height = size.Y;
     }
+
+    public override string ToString()
+        => $"Viewport(x:{x}, y:{y} - w:{width}, h:{height})";
 }
 
 public static class GLHelper
 {
     private static readonly Stack<Viewport> Viewport_Stack =
         new Stack<Viewport>();
+
+    public static Viewport Current => Viewport_Stack.Peek();
 
     public static void Initalize(Viewport v)
     {

@@ -1,16 +1,15 @@
 #version 420 core
-
-layout(location = 0) in vec2 point;
+layout(location = 0) in vec2 aPoint;
 
 uniform float width;
 uniform float height;
 
-out float cell_w;
-out float cell_h;
+out vec2 point;
 
 void main()
 {
-    cell_w = 1/width;
-    cell_h = 1/height;
-    gl_Position = vec4(point.x * cell_w, point.y * cell_h, 0, 1);
+    gl_Position = vec4(aPoint.x * 2 / width, (aPoint.y + 1) * 2 / height, 0, 1) - vec4(1, 1, 0, 0);
+    //gl_Position = vec4(aPoint.x / width, (aPoint.y + 1) / height, 0, 1) - vec4(1, 1, 0, 0);
+    //gl_Position = vec4(0,0,0,1);
+    point = aPoint;
 }

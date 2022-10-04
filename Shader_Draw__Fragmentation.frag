@@ -1,10 +1,11 @@
 #version 420
 
-out vec4 color;
+in vec4 geoColor;
 
-in float life;
+out vec4 color;
 
 void main()
 {
-    color = vec4(0, life, 0, 1);
+    color = geoColor;
+    //color = vec4(0,1,0,1);
 }
