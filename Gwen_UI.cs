@@ -10,6 +10,15 @@ public class Gwen_UI : ControlBase
     private readonly MenuStrip _menu;
     private readonly ControlBase _simulation_space;
 
+    public int GRID__X
+        => _simulation_space.ActualPosition.X;
+    public int GRID__Y
+        => _simulation_space.ActualPosition.Y;
+    public int GRID__WIDTH
+        => _simulation_space.ActualWidth;
+    public int GRID__HEIGHT
+        => _simulation_space.ActualHeight;
+
     private readonly Label _seed;
     public void Set__Seed(int? seed) => _seed.Text = $"Seed: {seed}";
 
@@ -25,6 +34,13 @@ public class Gwen_UI : ControlBase
     public event Action<float>? Updated__Compute_Speed;
     public event Action<byte>? Updated__Stencil_Value;
 
+    public event Action<string>? Updated__Tool_Selection;
+
+    public event Func<string, Tool>? Loaded__Tool;
+
+    private ControlBase Tool__Fields;
+    private ControlBase Tool__Selection;
+
     public Gwen_UI
     (
         ControlBase parent
@@ -33,9 +49,9 @@ public class Gwen_UI : ControlBase
     {
         Dock = Dock.Fill;
 
-        DockLayout dock_layout = new DockLayout(this);
+        DockBase dock_layout = new DockBase(this);
 
-        _menu = new MenuStrip(dock_layout);
+        _menu = new MenuStrip(this);
         _menu.Dock = Dock.Top;
 
         // file
@@ -78,12 +94,31 @@ public class Gwen_UI : ControlBase
             menu_item__step.Clicked += (s, e) => Pulsed__Step?.Invoke();
         }
 
+        StatusBar bar = new StatusBar(this);
+        bar.Dock = Dock.Bottom;
+
+        GridLayout Tool__Panel = new GridLayout(this)
+        {
+            Dock = Dock.Fill
+        };
+        Tool__Panel.SetColumnWidths(1);
+        Tool__Panel.SetRowHeights(0.25f, 0.75f);
+        Border b = new Border(Tool__Panel) { Dock = Dock.Fill, BorderType = BorderType.ListBox };
+
+        Tool__Selection = new FlowLayout(b) { Dock = Dock.Fill };
+
+        Tool__Fields = new GridLayout(Tool__Panel) 
+        { 
+            Dock = Dock.Fill
+        };
+
+        dock_layout.LeftDock.TabControl.AddPage("Tools", Tool__Panel);
+
         _simulation_space = new Gwen.Net.Control.Border(dock_layout);
         _simulation_space.Dock = Dock.Fill;
         _simulation_space.Hide();
-
-        StatusBar bar = new StatusBar(dock_layout);
-        bar.Dock = Dock.Bottom;
+        //_simulation_space.Margin = new Margin(0, _menu.ActualSize.Height, 0, bar.ActualSize.Height);
+        _simulation_space.Margin = new Margin(0, 27, 0, 27);
 
         HorizontalSlider simulation_speed = new HorizontalSlider(bar);
         simulation_speed.ValueChanged += (s,e) => Updated__Compute_Speed?.Invoke(simulation_speed.Value);
@@ -221,6 +256,65 @@ public class Gwen_UI : ControlBase
             .Clicked += (s,e) => dialog.Close();
 
         dialog.Show();
+    }
+
+    public void Load__Tool(Tool ui_tool)
+    {
+        new Button(Tool__Selection) 
+        {
+            Size = new Size(32,32),
+            Margin = new Margin(1)
+        }
+            .Clicked += (s,e) => Updated__Tool_Selection?.Invoke(ui_tool.Name);
+    }
+
+    public void Select__Tool
+    (
+        Shader.Invocation tool_invocation
+    )
+    {
+        if (tool_invocation.Uniform1__Float != null)
+            foreach(Shader.Uniform<float> u_float in tool_invocation.Uniform1__Float)
+                Private_Display__Uniform_Field(u_float);
+    }
+
+    private void Private_Display__Uniform_Field<T>(Shader.IUniform<T> uniform)
+    where T : struct
+    {
+        Tool__Fields.DeleteAllChildren();
+        new Label(Tool__Fields) { Text = uniform.Name, Size = new Size(Util.Ignore, 25) };
+        NumericUpDown numeric =
+            (typeof(T) == typeof(int) || typeof(T) == typeof(uint))
+            ? new NumericUpDown_AsInt(Tool__Fields)
+            : new NumericUpDown(Tool__Fields)
+            ;
+        numeric.Size = new Size(Util.Ignore, 25);
+        numeric.MinimumSize = new Size(100, 25);
+
+        numeric.Name = uniform.Name;
+
+        if (typeof(T) == typeof(uint))
+            numeric.Min = 0;
+
+        if (uniform is Shader.Uniform__Clamped<T>)
+        {
+            Shader.Uniform__Clamped<T> clamped_uniform =
+                (Shader.Uniform__Clamped<T>)uniform;
+
+            float min__as_float =
+                float.Parse(clamped_uniform.Min.ToString()!);
+            float max__as_float =
+                float.Parse(clamped_uniform.Max.ToString()!);
+
+            numeric.Min =
+                (min__as_float < numeric.Min)
+                ? numeric.Min
+                : min__as_float
+                ;
+
+            numeric.Max =
+                max__as_float;
+        }
     }
 
     private class NumericUpDown_AsInt : NumericUpDown

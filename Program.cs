@@ -1,9 +1,10 @@
-﻿
+
 using System.Diagnostics.CodeAnalysis;
 using Gwen.Net.OpenTk;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
+using KeyModifiers = OpenTK.Windowing.GraphicsLibraryFramework.KeyModifiers;
 using MouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 
 namespace GPU_Of_Life;
@@ -21,6 +22,9 @@ public class Program : Test__Window //GameWindow
     private readonly Shader SHADER__DRAW;
 
     [AllowNull]
+    private readonly History__Mouse_Position HISTORY__MOUSE_POSITION;
+    private readonly History__Tool_Invocation HISTORY__TOOL_INVOCATION;
+
     private readonly Shader SHADER__TOOL__STENCIL;
     private byte TOOL__STENCIL__VALUE = 255;
     private int history__length = 100;
@@ -34,16 +38,12 @@ public class Program : Test__Window //GameWindow
     private int VBO__CELL_POINTS;
 
     private Grid_Configuration GRID__CONFIGURATION;
-
+    private int GRID__WIDTH = 10, GRID__HEIGHT = 10;
+    private int CELL__COUNT => GRID__WIDTH * GRID__HEIGHT;
+    private int GRID__FRAMEBUFFER__COMPUTE;
     private int GRID__INDEX_COMPUTE = 0;
 
-    private int GRID__FRAMEBUFFER__COMPUTE;
-
     private Camera_2D GRID__CAMERA = new Camera_2D();
-
-    private int GRID__WIDTH = 10, GRID__HEIGHT = 10;
-    private int CELL__COUNT
-        => GRID__WIDTH * GRID__HEIGHT;
 
     [AllowNull]
     private Texture GRID__TEXTURE__BASE;
@@ -101,7 +101,7 @@ public class Program : Test__Window //GameWindow
 
         bool err = false;
         SHADER__COMPUTE =
-            new Shader.Factory()
+            new Shader.Builder()
             .Begin()
             .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Compute__Vertex.vert", ref err)
             .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Compute__Fragmentation.frag", ref err)
@@ -113,7 +113,7 @@ public class Program : Test__Window //GameWindow
         err = false;
 
         SHADER__DRAW =
-            new Shader.Factory()
+            new Shader.Builder()
             .Begin()
             .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Draw__Vertex.vert", ref err)
             .Add__Shader_From_File(ShaderType.GeometryShader, "Shader_Draw__Geometry.geom", ref err)
@@ -124,7 +124,7 @@ public class Program : Test__Window //GameWindow
         if (err) { Close(); return; }
 
         SHADER__TOOL__STENCIL =
-            new Shader.Factory()
+            new Shader.Builder()
             .Begin()
             .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Tool__Stencil__Vertex.vert", ref err)
             .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Tool__Stencil__Fragment.frag", ref err)
@@ -151,14 +151,16 @@ public class Program : Test__Window //GameWindow
             case Keys.F6:
                 GRID__IS_STEPPING = true;
                 break;
-            //case Keys.U:
-            //    if (e.Control || e.Command)
-            //        Private_Undo__Tool();
-            //    break;
-            //case Keys.R:
-            //    if (e.Control || e.Command)
-            //        Private_Redo__Tool();
-            //    break;
+            case Keys.U:
+                if (e.Modifiers == KeyModifiers.Control)
+                    history_mouse.Undo();
+                    //Private_Undo__Tool();
+                break;
+            case Keys.R:
+                if (e.Modifiers == KeyModifiers.Control)
+                    history_mouse.Redo();
+                    //Private_Redo__Tool();
+                break;
         }
     }
 
@@ -167,6 +169,13 @@ public class Program : Test__Window //GameWindow
         _gwen_gui.Load();
         _gwen_gui.Resize(Size);
         UI = new Gwen_UI(_gwen_gui.Root);
+        _gwen_gui.Render();
+
+        GRID__CAMERA.Resize__Focal_Size(new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
+
+        Tool? tool = Tool.Load(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
+        UI.Select__Tool(tool.Get__Invocation());
+        UI.Load__Tool(tool);
 
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
         UI.Invoked__Reset += () => Private_Reset__Grid();
@@ -190,8 +199,9 @@ public class Program : Test__Window //GameWindow
     {
         base.OnResize(e);
         _gwen_gui.Resize(Size);
+        _gwen_gui.Root.DoLayout();
         BASE__VIEWPORT.Resize(Size);
-        GRID__CAMERA.Resize__Focal_Size(Size);
+        GRID__CAMERA.Resize__Focal_Size(new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
     }
 
     protected override void OnRenderFrame(OpenTK.Windowing.Common.FrameEventArgs args)
@@ -235,13 +245,26 @@ public class Program : Test__Window //GameWindow
         Private_Process__Tool();
     }
 
+    private History__Mouse_Position history_mouse;
     private void Private_Process__Tool()
     {
+        if (MousePosition.X < UI.GRID__X || MousePosition.X > UI.GRID__X + UI.GRID__WIDTH)  return;
+        if (MousePosition.Y < UI.GRID__Y || MousePosition.Y > UI.GRID__Y + UI.GRID__HEIGHT) return;
         if (!MouseState.IsButtonDown(MouseButton.Left)) { Private_Clear__Stencil_History(); return; }
         if (mouse_previous == MousePosition) return;
         mouse_previous = MousePosition;
 
-        Vector4 tool_position = GRID__CAMERA.Get__Mouse_To_World(MousePosition);
+        Vector2 mouse_position =
+            new Vector2
+            (
+                MousePosition.X - UI.GRID__X,
+                Size.Y - (MousePosition.Y + UI.GRID__Y)
+            );
+        Vector4 tool_position = GRID__CAMERA.Get__Mouse_To_World(mouse_position);
+
+        if (history_mouse == null)
+            history_mouse = new History__Mouse_Position(100, 10);
+        history_mouse.Append(tool_position.Xy);
 
         if (history__current_index >= history__length)
             Private_Clear__Stencil_History();

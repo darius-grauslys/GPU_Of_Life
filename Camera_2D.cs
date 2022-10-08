@@ -8,16 +8,17 @@ namespace GPU_Of_Life;
 public class Camera_2D
 {
     private Vector2 FOCAL__SIZE;
+    private float FOCAL__ASPECT;
     private float FOCAL__WIDTH
         => FOCAL__SIZE.X;
     private float FOCAL__HEIGHT
         => FOCAL__SIZE.Y;
 
     internal Matrix4 GRID__PROJECTION = Matrix4.Identity;
-    private float GRID__PROJECTION__ZOOM__EXP = 1f;
-    private float GRID__PROJECTION__ZOOM__LOG_INTERVAL = 2;
-    private float GRID__PROJECTION__ZOOM = 1f;
-    private float GRID__PROJECTION__WIDTH, GRID__PROJECTION__HEIGHT;
+    public float GRID__PROJECTION__ZOOM__EXP = 1f;
+    public float GRID__PROJECTION__ZOOM__LOG_INTERVAL = 2;
+    public float GRID__PROJECTION__ZOOM = 1f;
+    public float GRID__PROJECTION__WIDTH, GRID__PROJECTION__HEIGHT;
 
     internal Matrix4 GRID__TRANSLATION = Matrix4.Identity;
     internal Vector2 GRID__TRANSLATION__POINT = new Vector2();
@@ -26,12 +27,13 @@ public class Camera_2D
     private float GRID__TRANSLATION__Y
         => GRID__TRANSLATION__POINT.Y;
 
-    public void Resize__Focal_Size(Vector2 size)
+    public void Resize__Focal_Size(Vector2 ortho_size, Vector2 size)
     {
-        FOCAL__SIZE = size;
+        FOCAL__ASPECT = size.X / size.Y;
+        FOCAL__SIZE = ortho_size;
 
-        GRID__PROJECTION__WIDTH  = (size.X / (float)size.Y) + 1;
-        GRID__PROJECTION__HEIGHT = (size.Y / (float)size.X) + 1;
+        GRID__PROJECTION__WIDTH  = (ortho_size.X / (float)ortho_size.Y) + 1;
+        GRID__PROJECTION__HEIGHT = (ortho_size.Y / (float)ortho_size.X) + 1;
         GRID__PROJECTION = 
             Matrix4.CreateOrthographic
             (
@@ -130,8 +132,23 @@ public class Camera_2D
         Matrix4 projection_inverted =
             (GRID__PROJECTION).Inverted();
 
-        Vector4 v4_mouse_pos = new Vector4(mouse_position.X / FOCAL__WIDTH, 1 - mouse_position.Y / FOCAL__HEIGHT, 0, 0.5f) * 2;
+        float test =
+            (float)Math.Pow
+            (
+                GRID__PROJECTION__ZOOM__LOG_INTERVAL,
+                GRID__PROJECTION__ZOOM__EXP - 4
+            ) + 1;
+
+        Vector4 v4_mouse_pos = 
+            new Vector4
+            (
+                mouse_position.X / FOCAL__WIDTH, 
+                (mouse_position.Y) / FOCAL__HEIGHT,
+                0, 0.5f
+            ) * 2;
         v4_mouse_pos += new Vector4(-1,-1,0,0);
+        //v4_mouse_pos.X *= FOCAL__ASPECT;
+        //v4_mouse_pos.Y /= FOCAL__ASPECT;
 
         v4_mouse_pos = (projection_inverted * v4_mouse_pos);
         v4_mouse_pos = (Matrix4.Transpose(GRID__TRANSLATION).Inverted()) * v4_mouse_pos;

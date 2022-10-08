@@ -84,7 +84,7 @@ void main()
 
         bool err = false;
         SHADER__DEFAULT =
-            new Shader.Factory()
+            new Shader.Builder()
             .Begin()
             .Add__Shader(ShaderType.VertexShader, source__vert, ref err)
             .Add__Shader(ShaderType.FragmentShader, source__frag, ref err)
