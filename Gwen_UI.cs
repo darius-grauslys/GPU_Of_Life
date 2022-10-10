@@ -38,7 +38,7 @@ public class Gwen_UI : ControlBase
 
     public event Func<string, Tool>? Loaded__Tool;
 
-    private ControlBase Tool__Fields;
+    private TreeControl Tool__Fields;
     private ControlBase Tool__Selection;
 
     public Gwen_UI
@@ -107,7 +107,7 @@ public class Gwen_UI : ControlBase
 
         Tool__Selection = new FlowLayout(b) { Dock = Dock.Fill };
 
-        Tool__Fields = new GridLayout(Tool__Panel) 
+        Tool__Fields = new TreeControl(Tool__Panel) 
         { 
             Dock = Dock.Fill
         };
@@ -262,6 +262,7 @@ public class Gwen_UI : ControlBase
     {
         new Button(Tool__Selection) 
         {
+            Text = ui_tool.Name[0].ToString(),
             Size = new Size(32,32),
             Margin = new Margin(1)
         }
@@ -273,6 +274,7 @@ public class Gwen_UI : ControlBase
         Shader.Invocation tool_invocation
     )
     {
+        Tool__Fields.RemoveAllNodes();
         if (tool_invocation.Uniform1__Float != null)
             foreach(Shader.Uniform<float> u_float in tool_invocation.Uniform1__Float)
                 Private_Display__Uniform_Field(u_float);
@@ -281,15 +283,17 @@ public class Gwen_UI : ControlBase
     private void Private_Display__Uniform_Field<T>(Shader.IUniform<T> uniform)
     where T : struct
     {
-        Tool__Fields.DeleteAllChildren();
-        new Label(Tool__Fields) { Text = uniform.Name, Size = new Size(Util.Ignore, 25) };
+                Console.WriteLine("---");
+        ControlBase field = Tool__Fields.AddNode(uniform.Name);
+        //new Label(Tool__Fields) { Text = uniform.Name, Size = new Size(Util.Ignore, 25) };
         NumericUpDown numeric =
             (typeof(T) == typeof(int) || typeof(T) == typeof(uint))
-            ? new NumericUpDown_AsInt(Tool__Fields)
-            : new NumericUpDown(Tool__Fields)
+            ? new NumericUpDown_AsInt(field)
+            : new NumericUpDown(field)
             ;
         numeric.Size = new Size(Util.Ignore, 25);
         numeric.MinimumSize = new Size(100, 25);
+        numeric.Dock = Dock.Bottom;
 
         numeric.Name = uniform.Name;
 

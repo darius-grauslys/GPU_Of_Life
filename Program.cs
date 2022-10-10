@@ -24,6 +24,8 @@ public class Program : Test__Window //GameWindow
     [AllowNull]
     private readonly History__Mouse_Position HISTORY__MOUSE_POSITION;
     private readonly History__Tool_Invocation HISTORY__TOOL_INVOCATION;
+    private readonly Tool__Repository TOOL__REPOSITORY =
+        new Tool__Repository();
 
     private readonly Shader SHADER__TOOL__STENCIL;
     private byte TOOL__STENCIL__VALUE = 255;
@@ -173,9 +175,13 @@ public class Program : Test__Window //GameWindow
 
         GRID__CAMERA.Resize__Focal_Size(new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
 
-        Tool? tool = Tool.Load(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
-        UI.Select__Tool(tool.Get__Invocation());
-        UI.Load__Tool(tool);
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Rectangle/"));
+        foreach(Tool tool in TOOL__REPOSITORY.TOOLS)
+            UI.Load__Tool(tool);
+
+        UI.Updated__Tool_Selection +=
+            (tool_name) => UI.Select__Tool(TOOL__REPOSITORY.RECORDED__TOOLS[tool_name].Get__Invocation());
 
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
         UI.Invoked__Reset += () => Private_Reset__Grid();

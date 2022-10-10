@@ -3,8 +3,11 @@ namespace GPU_Of_Life;
 
 public class Tool__Repository
 {
-    private readonly Dictionary<string, Tool> TOOLS =
+    internal readonly Dictionary<string, Tool> RECORDED__TOOLS =
         new Dictionary<string, Tool>();
+
+    public IEnumerable<Tool> TOOLS
+        => RECORDED__TOOLS.Values;
 
     private Tool? TOOL__ACTIVE;
 
@@ -15,14 +18,14 @@ public class Tool__Repository
 
     public void Set__Active_Tool(string tool_name)
     {
-        if (TOOLS.ContainsKey(tool_name))
-            TOOL__ACTIVE = TOOLS[tool_name];
+        if (RECORDED__TOOLS.ContainsKey(tool_name))
+            TOOL__ACTIVE = RECORDED__TOOLS[tool_name];
     }
 
     public void Load__Tool(string path)
     {
         Tool tool = Tool.Load(path);
 
-        TOOLS.Add(tool.Name, tool);
+        RECORDED__TOOLS.Add(tool.Name, tool);
     }
 }
