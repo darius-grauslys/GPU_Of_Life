@@ -474,8 +474,8 @@ public class Program : Test__Window //GameWindow
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture(TextureTarget.Texture2D, GRID__TEXTURE__READ.TEXTURE_HANDLE);
         SHADER__COMPUTE.Use();
-        GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)GRID__WIDTH);
-        GL.Uniform1(SHADER__DRAW.Get__Uniform("height"), (float)GRID__HEIGHT);
+        GL.Uniform1(SHADER__COMPUTE.Get__Uniform("width"), (float)GRID__WIDTH);
+        GL.Uniform1(SHADER__COMPUTE.Get__Uniform("height"), (float)GRID__HEIGHT);
         GL.BindVertexArray(VAO__CELL_POINTS);
         GL.DrawArrays(PrimitiveType.Points, 0, CELL__COUNT);
         GLHelper.Pop_Viewport();
