@@ -9,7 +9,7 @@ public class Tool__Repository
     public IEnumerable<Tool> TOOLS
         => RECORDED__TOOLS.Values;
 
-    private Tool? TOOL__ACTIVE;
+    public Tool? TOOL__ACTIVE { get; private set; }
 
     public Shader.Invocation? Get__Active_Tool__Invocation()
     {

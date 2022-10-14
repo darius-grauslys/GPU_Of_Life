@@ -35,6 +35,7 @@ public class Gwen_UI : ControlBase
     public event Action<byte>? Updated__Stencil_Value;
 
     public event Action<string>? Updated__Tool_Selection;
+    public event Action<object>? Updated__Tool_Uniform;
 
     public event Func<string, Tool>? Loaded__Tool;
 
@@ -271,16 +272,32 @@ public class Gwen_UI : ControlBase
 
     public void Select__Tool
     (
-        Shader.Invocation tool_invocation
+        Shader.Invocation? tool_invocation
     )
     {
         Tool__Fields.RemoveAllNodes();
+        if (tool_invocation == null) return;
         if (tool_invocation.Uniform1__Float != null)
+        {
             foreach(Shader.Uniform<float> u_float in tool_invocation.Uniform1__Float)
-                Private_Display__Uniform_Field(u_float);
+            {
+                Private_Display__Uniform_Field
+                (
+                    u_float,
+                    uniform =>
+                    {
+                        if (uniform != null) Updated__Tool_Uniform?.Invoke(uniform);
+                    }
+                );
+            }
+        }
     }
 
-    private void Private_Display__Uniform_Field<T>(Shader.IUniform<T> uniform)
+    private void Private_Display__Uniform_Field<T>
+    (
+        Shader.IUniform<T> uniform,
+        Action<T?> callback__value_updated
+    )
     where T : struct
     {
                 Console.WriteLine("---");
@@ -319,6 +336,9 @@ public class Gwen_UI : ControlBase
             numeric.Max =
                 max__as_float;
         }
+        
+        numeric.ValueChanged +=
+            (s,e) => callback__value_updated.Invoke(numeric.Value as T?);
     }
 
     private class NumericUpDown_AsInt : NumericUpDown

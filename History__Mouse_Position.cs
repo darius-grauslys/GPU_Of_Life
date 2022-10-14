@@ -1,12 +1,15 @@
 
+using System.Diagnostics.CodeAnalysis;
+using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 
 namespace GPU_Of_Life;
 
 public class History__Mouse_Position :
-History<Vector2, Vertex_Array_Object[]>
+History<Vector2, Vertex_Array_Object>
 {
-    private Vertex_Array_Object[] VAOs;
+    [AllowNull]
+    private Vertex_Array_Object MOUSE_POSITION__VAO;
 
     public History__Mouse_Position
     (
@@ -19,43 +22,47 @@ History<Vector2, Vertex_Array_Object[]>
         history_epoch_count
     )
     {
-        VAOs = new Vertex_Array_Object[history_epoch_count];
-        VAOs[0] = new Vertex_Array_Object();
+        Private_Establish__VAO();
     }
 
-    public override void Aggregate__Epochs(ref Vertex_Array_Object[] aggregation, ref bool error)
+    public override Vertex_Array_Object Aggregate__Epochs(ref bool error)
     {
-        aggregation = new Vertex_Array_Object[Quantity__Of__Epochs_Generated];
-        if (Quantity__Of__Epochs_Generated == 0) return;
+        if (Quantity__Of__Epochs_Generated == 0) return MOUSE_POSITION__VAO;
 
-        for(int i=0;i<EPOCH__COUNT;i++)
+        for(int i=0;i<Quantity__Of__Epochs_Generated;i++)
         {
             int epoch_index =
                 Get__Index_From__Oldest_Epoch(i);
 
-            VAOs[i]
-            .BufferData
-            (
-                EPOCHS[epoch_index].EPOCH__VALUES
-            );
+            for(int j=0;j<Quantity__Of__Records;j++)
+                Console.WriteLine(EPOCHS[epoch_index].EPOCH__VALUES[j]);
 
-            aggregation[i] = VAOs[i];
+            MOUSE_POSITION__VAO
+            .Buffer__Data
+            (
+                EPOCHS[epoch_index].EPOCH__VALUES,
+                // \/ this might've been the 0.75 week bug. Missing "* i"...
+                new IntPtr(Vector2.SizeInBytes * EPOCH__SIZE * i),
+                Quantity__Of__Records
+            );
         }
+
+        return MOUSE_POSITION__VAO;
     }
 
-//    public override void Append(Vector2 value)
-//    {
-//        Console.WriteLine($"Appendding: {value}");
-//        base.Append(value);
-//        Console.WriteLine("Append finished.");
-//    }
-
-    protected override void Handle_New__Epoch()
+    public override void Clear()
     {
-//        Console.WriteLine($"EPOCH GENERATED, total quantity: {Quantity__Of__Epochs_Generated}");
-        if (VAOs[Index__Current] == null)
-        {
-            VAOs[Index__Current] = new Vertex_Array_Object();
-        }
+        base.Clear();
+        Private_Establish__VAO();
+    }
+
+    private void Private_Establish__VAO()
+    {
+        MOUSE_POSITION__VAO =
+            new Vertex_Array_Object
+            (
+                EPOCH__SIZE * EPOCH__COUNT * Vector2.SizeInBytes,
+                new Vertex_Array_Object.Attribute(2, VertexAttribPointerType.Float, 2 * sizeof(float), 0)
+            );
     }
 }

@@ -241,7 +241,7 @@ public class Shader
     public class Invocation
     {
         public readonly Shader Shader;
-        public int VAO__Handle;
+        public Vertex_Array_Object VAO;
         public int Primtive__Count;
 
         public Uniform<Vector2> Mouse_Position__Origin =
@@ -281,6 +281,7 @@ public class Shader
                 uniform1__mat4 = null
         )
         {
+
             Shader                 = shader;
 
             Uniform1__Int          = uniform1__int?.ToList();
@@ -295,7 +296,9 @@ public class Shader
         }
 
         public Invocation Clone()
-            => new Invocation
+        {
+            Invocation invocation_clone =
+            new Invocation
             (
                 Shader,
 
@@ -309,9 +312,33 @@ public class Shader
                                        
                 UniformMat4__Matrix4
             );
+
+            invocation_clone.Mouse_Position__Origin =
+                Mouse_Position__Origin;
+            invocation_clone.Mouse_Position__Latest =
+                Mouse_Position__Latest;
+
+            return invocation_clone;
+        }
+
+        public override string ToString()
+        {
+            System.Text.StringBuilder sb = 
+                new System.Text.StringBuilder();
+
+            sb.Append($"mouse: {Mouse_Position__Origin.Internal__Value} -- {Mouse_Position__Latest.Internal__Value}");
+            sb.Append($" vao: {VAO.VAO_Handle}:{VAO.VBO_Handle}");
+
+            return sb.ToString();
+        }
     }
 
     public int PROGRAM_HANDLE { get; private set; }
+
+    public Shader()
+    {
+        PROGRAM_HANDLE = GL.CreateProgram();
+    }
 
     private Shader(int handle)
     {
@@ -353,30 +380,30 @@ public class Shader
     public int Get__Uniform(string uniform_name)
         => GL.GetUniformLocation(PROGRAM_HANDLE, uniform_name);
 
-    public void Set__Uniform<T>(Uniform<T> uniform)
-    where T : struct
+    public virtual void Set__Uniform<T>(string uniform_name, T value)
     {
         Type uniform_type = typeof(T);
+        int location = Get__Uniform(uniform_name);
 
         if      (uniform_type == typeof(int))
         {
-            GL.Uniform1(PROGRAM_HANDLE, (uniform as Uniform<int>?)?.Value ?? 0);
+            GL.Uniform1(location, (value as int?) ?? 0);
         }
         else if (uniform_type == typeof(uint))
         {
-            GL.Uniform1(PROGRAM_HANDLE, (uniform as Uniform<uint>?)?.Value ?? 0);
+            GL.Uniform1(location, (value as uint?) ?? 0);
         }
         else if (uniform_type == typeof(float))
         {
-            GL.Uniform1(PROGRAM_HANDLE, (uniform as Uniform<float>?)?.Value ?? 0);
+            GL.Uniform1(location, (value as float?) ?? 0);
         }
         else if (uniform_type == typeof(double))
         {
-            GL.Uniform1(PROGRAM_HANDLE, (uniform as Uniform<double>?)?.Value ?? 0);
+            GL.Uniform1(location, (value as double?) ?? 0);
         }
         else if (uniform_type == typeof(Vector2))
         {
-            GL.Uniform2(PROGRAM_HANDLE, (uniform as Uniform<Vector2>?)?.Value ?? new Vector2());
+            GL.Uniform2(location, (value as Vector2?) ?? new Vector2());
         }
         else
         {
@@ -384,13 +411,24 @@ public class Shader
         }
     }
 
-    public class Builder
+    public void Set__Uniform<T>(Uniform<T> uniform)
+    where T : struct
+    {
+        Set__Uniform<T>(uniform.Name, uniform.Internal__Value);
+    }
+
+    public class Builder :
+    Builder<Shader>
+    { }
+
+    public class Builder<TShader>
+    where TShader : Shader, new()
     {
         [AllowNull]
         private Shader shader;
         private List<int> handles = new List<int>();
 
-        public Builder Begin()
+        public Builder<TShader> Begin()
         {
             if (shader != null) return this;
             if (handles.Count != 0) return this;
@@ -400,7 +438,7 @@ public class Shader
             return this;
         }
 
-        public Builder Add__Shader(ShaderType shader_type, string source)
+        public Builder<TShader> Add__Shader(ShaderType shader_type, string source)
         {
             string error_message;
             bool error = false;
@@ -412,10 +450,10 @@ public class Shader
             return this;
         }
 
-        public Builder Add__Shader(ShaderType shader_type, string source, ref bool error)
+        public Builder<TShader> Add__Shader(ShaderType shader_type, string source, ref bool error)
             => Add__Shader(shader_type, source, ref error, out _);
 
-        public Builder Add__Shader(ShaderType shader_type, string source, ref bool error, out string error_message)
+        public Builder<TShader> Add__Shader(ShaderType shader_type, string source, ref bool error, out string error_message)
         {
             error_message = "";
             if (error) return this;
@@ -437,14 +475,14 @@ public class Shader
             return this;
         }
 
-        public Builder Add__Shader_From_File(ShaderType shader_type, string path)
+        public Builder<TShader> Add__Shader_From_File(ShaderType shader_type, string path)
         {
             string source = File.ReadAllText(path);
 
             return Add__Shader(shader_type, source);
         }
 
-        public Builder Add__Shader_From_File(ShaderType shader_type, string path, ref bool error)
+        public Builder<TShader> Add__Shader_From_File(ShaderType shader_type, string path, ref bool error)
         {
             if (error) return this;
             if (!File.Exists(path)) 

@@ -9,7 +9,7 @@
 //using OpenTK.Graphics.OpenGL;
 //using OpenTK.Mathematics;
 //
-//namespace OpenTK_Test;
+//namespace GPU_Of_Life;
 //
 //public class Test__Geometry__Game_Of_Life : Test__Window
 //{

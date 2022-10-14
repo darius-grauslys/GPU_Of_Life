@@ -20,7 +20,7 @@ public abstract class History<TRecord_Value, TAggregation>
         internal readonly Record[] EPOCH__RECORDS;
         public int EPOCH__HISTORY_INDEX { get; internal set; }
         public bool Is__Epoch_Finished
-            => EPOCH__HISTORY_INDEX + 1 == EPOCH__RECORDS.Length;
+            => EPOCH__HISTORY_INDEX     == EPOCH__RECORDS.Length;
         public bool Is__Epoch_Empty
             => EPOCH__HISTORY_INDEX <= 0;
         public bool Is__Epoch_Undone
@@ -32,10 +32,10 @@ public abstract class History<TRecord_Value, TAggregation>
             {
                 for(int i=0;i<EPOCH__HISTORY_INDEX;i++)
                 {
-                    if (EPOCH__RECORDS[EPOCH__HISTORY_INDEX] == null) yield break;
-                    if (EPOCH__RECORDS[EPOCH__HISTORY_INDEX]?.Is__State__Undo ?? true) 
+                    if (EPOCH__RECORDS[i] == null) yield break;
+                    if (EPOCH__RECORDS[i]?.Is__State__Undo ?? true) 
                         continue;
-                    yield return EPOCH__VALUES[EPOCH__HISTORY_INDEX];
+                    yield return EPOCH__VALUES[i];
                 }
             }
         }
@@ -46,10 +46,10 @@ public abstract class History<TRecord_Value, TAggregation>
             {
                 for(int i=0;i<EPOCH__HISTORY_INDEX;i++)
                 {
-                    if (EPOCH__RECORDS[EPOCH__HISTORY_INDEX] == null) yield break;
-                    if (EPOCH__RECORDS[EPOCH__HISTORY_INDEX]?.Is__State__Undo ?? true) 
+                    if (EPOCH__RECORDS[i] == null) yield break;
+                    if (EPOCH__RECORDS[i]?.Is__State__Undo ?? true) 
                         continue;
-                    yield return EPOCH__RECORDS[EPOCH__HISTORY_INDEX];
+                    yield return EPOCH__RECORDS[i];
                 }
             }
         }
@@ -115,8 +115,8 @@ public abstract class History<TRecord_Value, TAggregation>
     /// overlay, to show the user what their input will look like
     /// prior to release of the mouse button.
     /// </summary>
-    private TRecord_Value Preparing__Value;
-    private bool Is__Preparing__Value;
+    protected TRecord_Value Preparing__Value { get; set; }
+    public bool Is__Preparing__Value { get; private set; }
 
     public readonly int EPOCH__SIZE;
     public readonly int EPOCH__COUNT;
@@ -127,6 +127,9 @@ public abstract class History<TRecord_Value, TAggregation>
     private int EPOCH__INDEX = 0;
     private int EPOCH__INDEX__OLDEST = 0;
     private int EPOCH__COUNT_GENERATED = 1;
+
+    public int Quantity__Of__Records
+        => ((EPOCH__COUNT_GENERATED - 1) * EPOCH__SIZE) + Epoch__Currently_Indexed.EPOCH__HISTORY_INDEX;
 
     public int Quantity__Of__Epochs_Generated
         => EPOCH__COUNT_GENERATED;
@@ -155,24 +158,22 @@ public abstract class History<TRecord_Value, TAggregation>
     public int Get__Index_From__Oldest_Epoch(int i)
         => (i + EPOCH__INDEX__OLDEST) % EPOCHS.Length;
 
-    private Epoch Currently_Indexed__Epoch
+    protected internal Epoch Epoch__Currently_Indexed
         => EPOCHS[EPOCH__INDEX];
     private bool Is__Previous_Epoch_Existant
         => EPOCHS[Index__Previous_Epoch] != null;
 
-    protected Epoch Active__Epoch
+    protected internal Epoch Epoch__Active
     {
         get 
         {
-            if (Currently_Indexed__Epoch.Is__Epoch_Undone && Is__Previous_Epoch_Existant)
+            if (Epoch__Currently_Indexed.Is__Epoch_Undone && Is__Previous_Epoch_Existant)
             {
-                //Console.WriteLine("undone ~~~~~~~~~~~");
                 Private_Move__Epoch_Index(is__progressing_forwards_or_backwards: false);
-                return Currently_Indexed__Epoch;
+                return Epoch__Currently_Indexed;
             }
-            if (Currently_Indexed__Epoch.Is__Epoch_Finished)
+            if (Epoch__Currently_Indexed.Is__Epoch_Finished)
             {
-                //Console.WriteLine($"GENERATING EPOCH ~~~ index: {EPOCH__INDEX} next: {Index__Next_Epoch}");
                 Private_Move__Epoch_Index
                 (
                     is__progressing_forwards_or_backwards: true, 
@@ -180,7 +181,7 @@ public abstract class History<TRecord_Value, TAggregation>
                 );
             }
 
-            return Currently_Indexed__Epoch;
+            return Epoch__Currently_Indexed;
         }
     }
 
@@ -188,7 +189,9 @@ public abstract class History<TRecord_Value, TAggregation>
     //However this works for what we will currently
     //support.
     public bool Is__In_Need_Of__Update
-        => Currently_Indexed__Epoch.Is__In_Need_Of__Update;
+        => Epoch__Currently_Indexed.Is__In_Need_Of__Update;
+    public bool Is__Current_Epoch_Finished
+        => Epoch__Currently_Indexed.Is__Epoch_Finished;
 
     public History
     (
@@ -201,6 +204,17 @@ public abstract class History<TRecord_Value, TAggregation>
         EPOCHS =
             new Epoch[history_epoch_count];
         EPOCHS[0] = new Epoch(EPOCH__SIZE);
+    }
+
+    internal IEnumerable<TRecord_Value> TEST__get_values()
+    {
+        Console.WriteLine("print epochs");
+        for(int i=0;i<Quantity__Of__Epochs_Generated;i++)
+        {
+            Console.WriteLine($"EPOCH: {Get__Index_From__Oldest_Epoch(i)}");
+            foreach(TRecord_Value value in EPOCHS[Get__Index_From__Oldest_Epoch(i)].Active__Values)
+                yield return value;
+        }
     }
 
     /// <summary>
@@ -227,7 +241,7 @@ public abstract class History<TRecord_Value, TAggregation>
         if (!Is__Preparing__Value) return;
         Is__Preparing__Value = false;
 
-        Active__Epoch.Append(Preparing__Value);
+        Epoch__Active.Append(Preparing__Value);
     }
 
     /// <summary>
@@ -236,17 +250,25 @@ public abstract class History<TRecord_Value, TAggregation>
     /// </summary>
     public virtual void Append(TRecord_Value value)
     {
-        Active__Epoch.Append(value);
+        Epoch__Active.Append(value);
     }
 
     public virtual void Undo()
     {
-        Active__Epoch?.Undo();
+        Epoch__Active?.Undo();
     }
 
     public virtual void Redo()
     {
-        Active__Epoch.Redo();
+        Epoch__Active.Redo();
+    }
+
+    public virtual void Clear()
+    {
+        EPOCH__INDEX = 0;
+        for(int i=0;i<EPOCH__COUNT;i++)
+            EPOCHS[i] = null!;
+        EPOCHS[0] = new Epoch(EPOCH__SIZE);
     }
 
     protected IEnumerable<Epoch> Get__Epochs
@@ -275,7 +297,7 @@ public abstract class History<TRecord_Value, TAggregation>
     /// aggregate value. The resulting value
     /// as a result of the history of records.
     /// </summary>
-    public abstract void Aggregate__Epochs(ref TAggregation aggregation, ref bool error);
+    public abstract TAggregation Aggregate__Epochs(ref bool error);
 
     private void Private_Move__Epoch_Index
     (

@@ -22,8 +22,7 @@ public class Program : Test__Window //GameWindow
     private readonly Shader SHADER__DRAW;
 
     [AllowNull]
-    private readonly History__Mouse_Position HISTORY__MOUSE_POSITION;
-    private readonly History__Tool_Invocation HISTORY__TOOL_INVOCATION;
+    private History__Tool_Invocation HISTORY__TOOL_INVOCATION;
     private readonly Tool__Repository TOOL__REPOSITORY =
         new Tool__Repository();
 
@@ -144,6 +143,24 @@ public class Program : Test__Window //GameWindow
 
         switch(e.Key)
         {
+            case Keys.Space:
+                foreach(Shader.Invocation invocation in HISTORY__TOOL_INVOCATION.TEST__get_values())
+                    Console.WriteLine(invocation);
+                break;
+            case Keys.T:
+                test_flop__render_tool = !test_flop__render_tool;
+                break;
+            case Keys.Left:
+                test__step--;
+                if (test__step < 0) test__step = 0;
+                Console.WriteLine($"step: {test__step}");
+                break;
+            case Keys.Right:
+                test__step++;
+                if (test__step >= HISTORY__TOOL_INVOCATION.Quantity__Of__Epochs_Generated) test__step = 
+                    HISTORY__TOOL_INVOCATION.Quantity__Of__Epochs_Generated - 1;
+                Console.WriteLine($"step: {test__step}");
+                break;
             case Keys.F1:
                 Private_Reset__Grid();
                 break;
@@ -155,12 +172,12 @@ public class Program : Test__Window //GameWindow
                 break;
             case Keys.U:
                 if (e.Modifiers == KeyModifiers.Control)
-                    history_mouse.Undo();
+                    HISTORY__TOOL_INVOCATION.Undo();
                     //Private_Undo__Tool();
                 break;
             case Keys.R:
                 if (e.Modifiers == KeyModifiers.Control)
-                    history_mouse.Redo();
+                    HISTORY__TOOL_INVOCATION.Redo();
                     //Private_Redo__Tool();
                 break;
         }
@@ -181,14 +198,20 @@ public class Program : Test__Window //GameWindow
             UI.Load__Tool(tool);
 
         UI.Updated__Tool_Selection +=
-            (tool_name) => UI.Select__Tool(TOOL__REPOSITORY.RECORDED__TOOLS[tool_name].Get__Invocation());
+            (tool_name) => 
+            {
+                TOOL__REPOSITORY.Set__Active_Tool(tool_name);
+                HISTORY__TOOL_INVOCATION.Is__Requiring_Mouse_Position_History =
+                    TOOL__REPOSITORY.TOOL__ACTIVE!.Is__Requiring__Mouse_Position_History;
+                UI.Select__Tool(TOOL__REPOSITORY.TOOL__ACTIVE?.Get__Invocation());
+            };
 
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
         UI.Invoked__Reset += () => Private_Reset__Grid();
         UI.Toggle__Run    +=  b => GRID__IS_ACTIVE = b;
         UI.Pulsed__Step   += () => GRID__IS_STEPPING = true;
 
-        UI.Render__Grid += Private_Render__Grid;
+        UI.Render__Grid += Private_Render__Simulation_Space;
 
         UI.Updated__Compute_Speed += 
             (speed_level) => 
@@ -230,6 +253,7 @@ public class Program : Test__Window //GameWindow
             MousePosition,
             args
         );
+        Private_Process__Tool();
     }
 
     protected override void OnMouseWheel(OpenTK.Windowing.Common.MouseWheelEventArgs e)
@@ -238,27 +262,27 @@ public class Program : Test__Window //GameWindow
         GRID__CAMERA.Process__Scroll(e);
     }
 
-    protected override void OnMouseDown(OpenTK.Windowing.Common.MouseButtonEventArgs e)
-    {
-        base.OnMouseDown(e);
-        Private_Process__Tool();
-    }
-
     Vector2 mouse_previous = new Vector2(-1);
-    protected override void OnMouseMove(OpenTK.Windowing.Common.MouseMoveEventArgs e)
-    {
-        base.OnMouseMove(e);
-        Private_Process__Tool();
-    }
+    Vector2 mouse_origin   = new Vector2(-1);
 
-    private History__Mouse_Position history_mouse;
     private void Private_Process__Tool()
     {
+        if (TOOL__REPOSITORY.TOOL__ACTIVE == null) return;
         if (MousePosition.X < UI.GRID__X || MousePosition.X > UI.GRID__X + UI.GRID__WIDTH)  return;
         if (MousePosition.Y < UI.GRID__Y || MousePosition.Y > UI.GRID__Y + UI.GRID__HEIGHT) return;
-        if (!MouseState.IsButtonDown(MouseButton.Left)) { Private_Clear__Stencil_History(); return; }
-        if (mouse_previous == MousePosition) return;
-        mouse_previous = MousePosition;
+
+        if (!MouseState.IsButtonDown(MouseButton.Left))
+        {
+            if (HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+            {
+                Console.WriteLine("finish");
+                HISTORY__TOOL_INVOCATION.Finish();
+            }
+            mouse_origin = new Vector2(-1);
+            mouse_previous = new Vector2(-1);
+            Private_Clear__Stencil_History(); 
+            return; 
+        }
 
         Vector2 mouse_position =
             new Vector2
@@ -266,11 +290,39 @@ public class Program : Test__Window //GameWindow
                 MousePosition.X - UI.GRID__X,
                 Size.Y - (MousePosition.Y + UI.GRID__Y)
             );
-        Vector4 tool_position = GRID__CAMERA.Get__Mouse_To_World(mouse_position);
 
-        if (history_mouse == null)
-            history_mouse = new History__Mouse_Position(100, 10);
-        history_mouse.Append(tool_position.Xy);
+        if (mouse_previous == mouse_position) return;
+        mouse_previous = mouse_position;
+
+        Vector4 tool_position = GRID__CAMERA.Get__Mouse_To_World(mouse_position);
+        if (mouse_origin.X == -1) mouse_origin = tool_position.Xy;
+
+        if(TOOL__REPOSITORY.TOOL__ACTIVE.Is__Requiring__Mouse_Position_History)
+        {
+            HISTORY__TOOL_INVOCATION.Buffer__Mouse_Position(tool_position.Xy);
+            if (mouse_origin.X == -1) // do it again
+                HISTORY__TOOL_INVOCATION.Buffer__Mouse_Position(tool_position.Xy);
+        }
+
+        if (!HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+        {
+            Console.WriteLine(">> PREPARING <<");
+            Shader.Invocation invocation =
+                TOOL__REPOSITORY.Get__Active_Tool__Invocation()!;
+
+            invocation.Mouse_Position__Origin.Internal__Value = mouse_origin;
+            HISTORY__TOOL_INVOCATION.Prepare(invocation);
+        }
+        HISTORY__TOOL_INVOCATION.Preparing__Value!
+            .Mouse_Position__Latest.Internal__Value =
+            tool_position.Xy;
+        Console.WriteLine
+        (
+            $"updating value: {HISTORY__TOOL_INVOCATION.Preparing__Value.Mouse_Position__Origin.Internal__Value}"
+            +
+            $" -- {HISTORY__TOOL_INVOCATION.Preparing__Value.Mouse_Position__Latest.Internal__Value}"
+        );
+            
 
         if (history__current_index >= history__length)
             Private_Clear__Stencil_History();
@@ -368,6 +420,14 @@ public class Program : Test__Window //GameWindow
                 base_pixel_initalizer
             );
 
+        HISTORY__TOOL_INVOCATION = 
+            new History__Tool_Invocation
+            (
+                GRID__TEXTURE__BASE, 
+                100, 10,
+                100, 10
+            );
+
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
         GL.FramebufferTexture2D
         (
@@ -440,19 +500,13 @@ public class Program : Test__Window //GameWindow
         //GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }
 
-    private void Private_Render__Grid
+    private void Private_Render__Simulation_Space
     (
         int viewport_width,
         int viewport_height
     )
     {
-        GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
-        SHADER__TOOL__STENCIL.Use();
-        GL.Uniform1(SHADER__TOOL__STENCIL.Get__Uniform("life"), TOOL__STENCIL__VALUE / 255f);
-        GL.BindVertexArray(stencil_vao);
-        GL.DrawArrays(PrimitiveType.LineStrip, 0, history__current_index);
-        GLHelper.Pop_Viewport();
+        Private_Render__Tool();
 
         //if (GRID__IS_ACTIVE)
         //    Console.WriteLine("ACTIVE");
@@ -469,6 +523,37 @@ public class Program : Test__Window //GameWindow
         GRID__IS_INITIAL = false;
         TIME__ELAPSED = 0;
         
+        Private_Compute__Grid();
+
+render_grid:
+        Private_Render__Grid();
+    }
+
+    bool test_flop__render_tool = false;
+    private void Private_Render__Tool()
+    {
+        if (test_flop__render_tool) goto test;
+        GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
+        SHADER__TOOL__STENCIL.Use();
+        GL.Uniform1(SHADER__TOOL__STENCIL.Get__Uniform("life"), TOOL__STENCIL__VALUE / 255f);
+        GL.BindVertexArray(stencil_vao);
+        GL.DrawArrays(PrimitiveType.LineStrip, 0, history__current_index);
+        GLHelper.Pop_Viewport();
+        return;
+test:
+        //Console.WriteLine("impl 494 Program.cs");
+        bool error = false;
+        if (HISTORY__TOOL_INVOCATION.Is__In_Need_Of__Update || HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+        {
+            GRID__TEXTURE__BASE =
+                HISTORY__TOOL_INVOCATION.Aggregate__Epochs(ref error);
+            return;
+        }
+    }
+
+    private void Private_Compute__Grid()
+    {
         GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, GRID__FRAMEBUFFER__COMPUTE);
         GL.ActiveTexture(TextureUnit.Texture0);
@@ -481,8 +566,29 @@ public class Program : Test__Window //GameWindow
         GLHelper.Pop_Viewport();
 
         Private_Swap__Grids();
+    }
 
-render_grid:
+    int test__step = 0;
+    private void Private_Render__Grid()
+    {
+        if (!test_flop__render_tool) goto _default;
+
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        GL.ActiveTexture(TextureUnit.Texture0);
+        GL.BindTexture
+        (
+            TextureTarget.Texture2D, 
+            GRID__TEXTURE__WRITE.TEXTURE_HANDLE
+        );
+        SHADER__DRAW.Use();
+        GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)GRID__WIDTH);
+        GL.Uniform1(SHADER__DRAW.Get__Uniform("height"), (float)GRID__HEIGHT);
+        GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("projection"), false, ref GRID__CAMERA.GRID__PROJECTION);
+        GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("translation"), false, ref GRID__CAMERA.GRID__TRANSLATION);
+        GL.BindVertexArray(VAO__CELL_POINTS);
+        GL.DrawArrays(PrimitiveType.Points, 0, CELL__COUNT);
+
+_default:
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture
@@ -495,12 +601,9 @@ render_grid:
                 : GRID__TEXTURE__READ.TEXTURE_HANDLE
         );
         SHADER__DRAW.Use();
-        //GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)viewport_width);
-        //GL.Uniform1(SHADER__DRAW.Get__Uniform("height"), (float)viewport_height);
         GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)GRID__WIDTH);
         GL.Uniform1(SHADER__DRAW.Get__Uniform("height"), (float)GRID__HEIGHT);
         GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("projection"), false, ref GRID__CAMERA.GRID__PROJECTION);
-        //Matrix4 translation = Matrix4.Identity;
         GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("translation"), false, ref GRID__CAMERA.GRID__TRANSLATION);
         GL.BindVertexArray(VAO__CELL_POINTS);
         GL.DrawArrays(PrimitiveType.Points, 0, CELL__COUNT);

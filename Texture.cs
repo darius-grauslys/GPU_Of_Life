@@ -4,7 +4,7 @@ using OpenTK.Graphics.OpenGL;
 
 namespace GPU_Of_Life;
 
-public class Texture
+public class Texture : IDisposable
 {
     private static int MAX_SIZE = -1;
 
@@ -136,6 +136,11 @@ public class Texture
                 ref error
             );
         GL.BindTexture(TextureTarget.Texture2D, 0);
+    }
+
+    public void Dispose()
+    {
+        GL.DeleteTexture(TEXTURE_HANDLE);
     }
 
     public abstract class Pixel_Initalizer
