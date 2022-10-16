@@ -30,6 +30,7 @@ public class History__Tool_Invocation
 
     internal bool Is__Genesis_Rolling { get; private set; }
     internal Texture EPOCH__TEXTURE__GENESIS;
+    internal Texture EPOCH__TEXTURE__OVERLAY;
     internal Texture[] EPOCH__TEXTURES;
     public Texture Aggregation__Latest
         => EPOCH__TEXTURES[Index__Current];
@@ -95,6 +96,16 @@ public class History__Tool_Invocation
                 base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
             );
 
+        EPOCH__TEXTURE__OVERLAY = 
+            new Texture
+            (
+                base_aggregation.Width, base_aggregation.Height,
+                base_aggregation.Pixel_Buffer_Initalizer.Channel_Count,
+                base_aggregation.Pixel_Buffer_Initalizer.Internal_Format,
+                base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
+            );
+
+        SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
     }
 
@@ -175,6 +186,12 @@ public class History__Tool_Invocation
 
         if (Is__Preparing__Value)
         {
+            SHADER__PASSTHROUGH.Process
+            (
+                EPOCH__TEXTURES[Index__Current],
+                EPOCH__TEXTURE__OVERLAY
+            );
+
             int primitive_count;
             Vertex_Array_Object? vao_aggregate =
                 Aggregation__Tool_Positions(out primitive_count);
@@ -184,9 +201,12 @@ public class History__Tool_Invocation
                 .Aggregate__Invocation
                 (
                     Preparing__Value,
-                    EPOCH__TEXTURES[Index__Current],
+                    EPOCH__TEXTURE__OVERLAY,
                     ref error
                 );
+
+            GLHelper.Pop_Viewport();
+            return EPOCH__TEXTURE__OVERLAY;
         }
 
         GLHelper.Pop_Viewport();

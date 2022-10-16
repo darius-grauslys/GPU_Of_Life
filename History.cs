@@ -15,6 +15,7 @@ public abstract class History<TRecord_Value, TAggregation>
     protected internal class Epoch
     {
         public bool Is__In_Need_Of__Update { get; internal set; }
+            = true;
 
         public readonly TRecord_Value[] EPOCH__VALUES;
         internal readonly Record[] EPOCH__RECORDS;

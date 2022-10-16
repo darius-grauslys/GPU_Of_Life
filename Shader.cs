@@ -182,11 +182,13 @@ public partial class Shader
         GL.ShaderSource(handle_frag, frag);
         GL.CompileShader(handle_vert);
         string err;
-        Console.WriteLine("SHADER-VERT:\n{0}", err = GL.GetShaderInfoLog(handle_vert));
+        err = GL.GetShaderInfoLog(handle_vert);
         error = err != string.Empty;
+        if (error) Console.WriteLine(err);
         GL.CompileShader(handle_frag);
-        Console.WriteLine("SHADER-FRAG:\n{0}", err = GL.GetShaderInfoLog(handle_frag));
+        err = GL.GetShaderInfoLog(handle_frag);
         error = error || err != string.Empty;
+        if (error) Console.WriteLine(err);
         PROGRAM_HANDLE = GL.CreateProgram();
         GL.AttachShader(PROGRAM_HANDLE, handle_vert);
         GL.AttachShader(PROGRAM_HANDLE, handle_frag);

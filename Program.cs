@@ -10,7 +10,6 @@ using MouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 using StbImageSharp;
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
 
 namespace GPU_Of_Life;
 
@@ -131,12 +130,12 @@ public class Program : Test__Window //GameWindow
                 GRID__IS_STEPPING = true;
                 break;
             case Keys.U:
-                if (e.Modifiers == KeyModifiers.Control)
+                if (e.Modifiers == KeyModifiers.Control || e.Control)
                     HISTORY__TOOL_INVOCATION.Undo();
                     //Private_Undo__Tool();
                 break;
             case Keys.R:
-                if (e.Modifiers == KeyModifiers.Control)
+                if (e.Modifiers == KeyModifiers.Control || e.Control)
                     HISTORY__TOOL_INVOCATION.Redo();
                     //Private_Redo__Tool();
                 break;
@@ -352,8 +351,6 @@ public class Program : Test__Window //GameWindow
                     format = PixelFormat.Rgba;
                     break;
             }
-
-            Console.WriteLine($"channel: {channel_count} - {internal_format} - {format}");
 
             base_pixel_initalizer =
                 new Texture.Direct__Pixel_Initalizer
