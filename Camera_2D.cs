@@ -64,10 +64,6 @@ public class Camera_2D
                 GRID__PROJECTION__HEIGHT * GRID__PROJECTION__ZOOM, 
                 0, 1
             );
-
-        //Console.WriteLine(GRID__PROJECTION__ZOOM);
-        //Console.WriteLine($"delta:{e.Offset} norm:{normalize_delta}");
-        //Console.WriteLine($"zoom: {GRID__PROJECTION__ZOOM} zoom__exp: {GRID__PROJECTION__ZOOM__EXP} delta: {delta}");
     }
 
     Vector2? mouse__last_frame;
@@ -122,9 +118,6 @@ public class Camera_2D
         GRID__TRANSLATION = Matrix4.CreateTranslation(GRID__TRANSLATION__X, GRID__TRANSLATION__Y, 0);
 
         mouse__last_frame = mouse;
-        //Console.WriteLine($"MOUSE: {mouse}");
-        //Console.WriteLine($"w_min: {w_min} w_max: {w_max} h_min: {h_min} h_max: {h_max}");
-        //Console.WriteLine($"pos: {GRID__TRANSLATION} nPos: {nTranslation} delta: {delta}");
     }
 
     public Vector4 Get__Mouse_To_World(Vector2 mouse_position)

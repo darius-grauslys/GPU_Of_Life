@@ -34,9 +34,6 @@ History<Vector2, Vertex_Array_Object>
             int epoch_index =
                 Get__Index_From__Oldest_Epoch(i);
 
-            for(int j=0;j<Quantity__Of__Records;j++)
-                Console.WriteLine(EPOCHS[epoch_index].EPOCH__VALUES[j]);
-
             MOUSE_POSITION__VAO
             .Buffer__Data
             (

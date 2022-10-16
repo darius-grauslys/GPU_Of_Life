@@ -1,4 +1,4 @@
-Name: Rectangle 
+Name: Full_Rectangle 
 Is__Requiring__Mouse_Position_History: false
 Uniforms:
 - Type: float

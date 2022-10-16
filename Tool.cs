@@ -27,8 +27,8 @@ public class Tool
 
     public class Uniform_Table
     {
-        private readonly List<object> UNIFORMS =
-            new List<object>();
+        private readonly Dictionary<string, Shader.IUniform> UNIFORMS =
+            new Dictionary<string, Shader.IUniform>();
 
         internal Uniform_Table() { }
 
@@ -43,7 +43,7 @@ public class Tool
 
                 string uniform_name = tokens[tokens.Length - 1].Split(';')[0];
                 
-                object? uniform = null;
+                Shader.IUniform? uniform = null;
 
                 foreach(string token in tokens)
                 {
@@ -62,7 +62,7 @@ public class Tool
                 Configuration.Uniform config_uniform in configuration.Uniforms
             )
             {
-                object? uniform =
+                Shader.IUniform? uniform =
                     Private_Get__Uniform
                     (
                         config_uniform.Name,
@@ -79,14 +79,15 @@ public class Tool
         private void Private_Record__Uniform
         (
             string uniform_name,
-            object? uniform
+            Shader.IUniform? uniform
         )
         {
             if (uniform == null) return;
-            UNIFORMS.Add(uniform);
+            if (!UNIFORMS.ContainsKey(uniform_name))
+                UNIFORMS.Add(uniform_name, uniform);
         }
 
-        private object? Private_Get__Uniform
+        private Shader.IUniform? Private_Get__Uniform
         (
             string field_name, 
             string uniform_type,
@@ -95,42 +96,102 @@ public class Tool
             string? min = null
         )
         {
-            object uniform;
+            Shader.IUniform uniform;
 
             switch(uniform_type)
             {
                 default:
                     return null;
                 case "int":
+                    int parsed_value__int =
+                        (value != null)
+                        ? int.Parse(value)
+                        : 0
+                        ;
+                    int parsed_max__int =
+                        (max != null)
+                        ? int.Parse(max)
+                        : 0
+                        ;
+                    int parsed_min__int =
+                        (min != null)
+                        ? int.Parse(min)
+                        : 0
+                        ;
                     uniform =
-                        (min == null || max == null)
-                        ? new Shader.Uniform<int>(field_name, value != null ? int.Parse(value) : 0)
-                        : Shader.Parse__Uniform__Clamped_Int(field_name, value ?? "0", min, max);
+                        (min == null && max == null)
+                        ? new Shader.Uniform__Int(field_name, parsed_value__int)
+                        : new Shader.Uniform__Int__Clamped(field_name, parsed_value__int, parsed_min__int, parsed_max__int);
                         ;
                     break;
                 case "uint":
-                    uniform = 
-                        (min == null || max == null)
-                        ? new Shader.Uniform<uint>(field_name, value != null ? uint.Parse(value) : 0)
-                        : Shader.Parse__Uniform__Clamped_Unsigned_Int(field_name, value ?? "0", min, max);
+                    uint parsed_value__uint =
+                        (value != null)
+                        ? uint.Parse(value)
+                        : 0
+                        ;
+                    uint parsed_max__uint =
+                        (max != null)
+                        ? uint.Parse(max)
+                        : 0
+                        ;
+                    uint parsed_min__uint =
+                        (min != null)
+                        ? uint.Parse(min)
+                        : 0
+                        ;
+                    uniform =
+                        (min == null && max == null)
+                        ? new Shader.Uniform__Unsigned_Int(field_name, parsed_value__uint)
+                        : new Shader.Uniform__Unsigned_Int__Clamped(field_name, parsed_value__uint, parsed_min__uint, parsed_max__uint);
                         ;
                     break;
                 case "float":
-                    uniform = 
-                        (min == null || max == null)
-                        ? new Shader.Uniform<float>(field_name, value != null ? float.Parse(value) : 0)
-                        : Shader.Parse__Uniform__Clamped_Float(field_name, value ?? "0", min, max)
+                    float parsed_value__float =
+                        (value != null)
+                        ? float.Parse(value)
+                        : 0
+                        ;
+                    float parsed_max__float =
+                        (max != null)
+                        ? float.Parse(max)
+                        : 0
+                        ;
+                    float parsed_min__float =
+                        (min != null)
+                        ? float.Parse(min)
+                        : 0
+                        ;
+                    uniform =
+                        (min == null && max == null)
+                        ? new Shader.Uniform__Float(field_name, parsed_value__float)
+                        : new Shader.Uniform__Float__Clamped(field_name, parsed_value__float, parsed_min__float, parsed_max__float);
                         ;
                     break;
                 case "double":
-                    uniform = 
-                        (min == null || max == null)
-                        ? new Shader.Uniform<double>(field_name, value != null ? double.Parse(value) : 0)
-                        : Shader.Parse__Uniform__Clamped_Double(field_name, value ?? "0", min, max)
+                    double parsed_value__double =
+                        (value != null)
+                        ? double.Parse(value)
+                        : 0
+                        ;
+                    double parsed_max__double =
+                        (max != null)
+                        ? double.Parse(max)
+                        : 0
+                        ;
+                    double parsed_min__double =
+                        (min != null)
+                        ? double.Parse(min)
+                        : 0
+                        ;
+                    uniform =
+                        (min == null && max == null)
+                        ? new Shader.Uniform__Double(field_name, parsed_value__double)
+                        : new Shader.Uniform__Double__Clamped(field_name, parsed_value__double, parsed_min__double, parsed_max__double);
                         ;
                     break;
                 case "vec2":
-                    uniform = new Shader.Uniform<Vector2>(field_name, new Vector2());
+                    uniform = new Shader.Uniform__Vector2(field_name, new Vector2());
                     break;
             }
 
@@ -142,33 +203,33 @@ public class Tool
             Shader shader
         )
         {
-            List<Shader.IUniform<int>> uniform1__int = new List<Shader.IUniform<int>>();
-            List<Shader.IUniform<uint>> uniform1__uint = new List<Shader.IUniform<uint>>();
-            List<Shader.IUniform<float>> uniform1__float = new List<Shader.IUniform<float>>();
-            List<Shader.IUniform<double>> uniform1__double = new List<Shader.IUniform<double>>();
-            List<Shader.IUniform<Vector2>> uniform2__vector2 = new List<Shader.IUniform<Vector2>>();
+            Dictionary<string, Shader.IUniform> uniform1__int = new Dictionary<string, Shader.IUniform>();
+            Dictionary<string, Shader.IUniform> uniform1__uint = new Dictionary<string, Shader.IUniform>();
+            Dictionary<string, Shader.IUniform> uniform1__float = new Dictionary<string, Shader.IUniform>();
+            Dictionary<string, Shader.IUniform> uniform1__double = new Dictionary<string, Shader.IUniform>();
+            Dictionary<string, Shader.IUniform> uniform2__vector2 = new Dictionary<string, Shader.IUniform>();
 
-            Private_Add__Any_Uniforms_That_Is__To_List
+            Private_Add__To_Dictionary__Any_Uniforms_That_Is<int>
             (
                 UNIFORMS,
                 uniform1__int
             );
-            Private_Add__Any_Uniforms_That_Is__To_List
+            Private_Add__To_Dictionary__Any_Uniforms_That_Is<uint>
             (
                 UNIFORMS,
                 uniform1__uint
             );
-            Private_Add__Any_Uniforms_That_Is__To_List
+            Private_Add__To_Dictionary__Any_Uniforms_That_Is<float>
             (
                 UNIFORMS,
                 uniform1__float
             );
-            Private_Add__Any_Uniforms_That_Is__To_List
+            Private_Add__To_Dictionary__Any_Uniforms_That_Is<double>
             (
                 UNIFORMS,
                 uniform1__double
             );
-            Private_Add__Any_Uniforms_That_Is__To_List
+            Private_Add__To_Dictionary__Any_Uniforms_That_Is<Vector2>
             (
                 UNIFORMS,
                 uniform2__vector2
@@ -187,10 +248,10 @@ public class Tool
                 );
         }
 
-        private void Private_Add__Any_Uniforms_That_Is__To_List<T>
+        private void Private_Add__To_Dictionary__Any_Uniforms_That_Is<T>
         (
-            List<object> source_collection,
-            List<Shader.IUniform<T>> target_list
+            Dictionary<string, Shader.IUniform> source_collection,
+            Dictionary<string, Shader.IUniform> target_dict
         )
         where T : struct
         {
@@ -198,11 +259,12 @@ public class Tool
             (
                 Shader.IUniform<T> uniform 
                 in 
-                UNIFORMS
+                source_collection
+                    .Values
                     .Where(o => o is Shader.IUniform<T>)
                     .Cast<Shader.IUniform<T>>()
             )
-                target_list.Add(uniform);
+                target_dict.Add(uniform.Name, uniform);
         }
     }
 

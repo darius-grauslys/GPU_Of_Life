@@ -41,6 +41,26 @@ public class Texture : IDisposable
     }
 
     public Pixel_Initalizer Pixel_Buffer_Initalizer { get; }
+
+    public Texture
+    (
+        int width, int height,
+        int channel_count,
+        PixelInternalFormat? internal_format = null,
+        PixelFormat? pixel_format = null
+    )
+    : this
+    (
+        width, height,
+        new Direct__Pixel_Initalizer
+        (
+            channel_count,
+            internal_format ?? PixelInternalFormat.Luminance,
+            pixel_format ?? PixelFormat.Luminance,
+            PixelType.UnsignedByte
+        )
+    )
+    { }
     
     public Texture
     (
@@ -153,10 +173,10 @@ public class Texture : IDisposable
         public int? Seed { get => seed; set => Randomizer = value != null ? new Random((int)(seed = value)!) : null; }
         protected Random? Randomizer { get; private set; }
         
-        protected readonly int Channel_Count;
-        protected readonly PixelInternalFormat Internal_Format;
-        protected readonly PixelFormat Pixel_Format;
-        protected readonly PixelType Pixel_Type;
+        public readonly int Channel_Count;
+        public readonly PixelInternalFormat Internal_Format;
+        public readonly PixelFormat Pixel_Format;
+        public readonly PixelType Pixel_Type;
 
         public Pixel_Initalizer
         (

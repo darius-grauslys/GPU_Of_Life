@@ -1,5 +1,6 @@
 
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace GPU_Of_Life;
 
@@ -19,7 +20,6 @@ public class Shader_Invocation__Aggregator
         ref bool error
     )
     {
-        Console.WriteLine($"viewport: {GLHelper.Current}");
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, FRAMEBUFFER__AGGREGATION);
         GL.FramebufferTexture2D
         (
@@ -31,18 +31,20 @@ public class Shader_Invocation__Aggregator
         );
 
         invocation.Shader.Use();
+        invocation.Set__Uniform(invocation.Mouse_Position__Latest);
+        invocation.Set__Uniform(invocation.Mouse_Position__Origin);
 
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform1__Int);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform1__Unsigned_Int);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform1__Float);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform1__Double);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform2__Vector2);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.Uniform2__Vector2i);
-        //Private_Bind__Uniforms(invocation.Shader, invocation.UniformMat4__Matrix4);
+        Private_Bind__Uniforms<int>     (invocation.Shader, invocation.Uniform1__Int);
+        Private_Bind__Uniforms<uint>    (invocation.Shader, invocation.Uniform1__Unsigned_Int);
+        Private_Bind__Uniforms<float>   (invocation.Shader, invocation.Uniform1__Float);
+        Private_Bind__Uniforms<double>  (invocation.Shader, invocation.Uniform1__Double);
+        Private_Bind__Uniforms<Vector2> (invocation.Shader, invocation.Uniform2__Vector2);
+        Private_Bind__Uniforms<Vector2i>(invocation.Shader, invocation.Uniform2__Vector2i);
+        Private_Bind__Uniforms<Matrix4> (invocation.Shader, invocation.Uniform__Matrix4);
 
-        Console.WriteLine($"vao: {invocation.VAO.VAO_Handle} - {invocation.Primtive__Count}");
         invocation.VAO.Bind();
-        GL.DrawArrays(PrimitiveType.LineStrip, 0, invocation.Primtive__Count);
+        //GL.DrawArrays(PrimitiveType.LineStrip, 0, invocation.Primtive__Count);
+        GL.DrawArrays(PrimitiveType.Points, 0, invocation.Primtive__Count);
         //GL.Finish();
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -51,15 +53,14 @@ public class Shader_Invocation__Aggregator
     private void Private_Bind__Uniforms<T>
     (
         Shader shader,
-        IEnumerable<Shader.IUniform<T>>? uniforms
+        Dictionary<string, Shader.IUniform>? uniforms
     )
     where T   : struct
     {
         if (uniforms == null) return;
 
-        foreach(Shader.Uniform<T> uniform in uniforms)
+        foreach(Shader.IUniform<T> uniform in uniforms.Values)
         {
-            Console.WriteLine($"uniform: {uniform.Name} = {uniform.Internal__Value}");
             shader.Set__Uniform(uniform);
         }
     }

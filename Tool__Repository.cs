@@ -10,16 +10,16 @@ public class Tool__Repository
         => RECORDED__TOOLS.Values;
 
     public Tool? TOOL__ACTIVE { get; private set; }
-
-    public Shader.Invocation? Get__Active_Tool__Invocation()
-    {
-        return TOOL__ACTIVE?.Get__Invocation();
-    }
+    public Shader.Invocation? TOOL__ACTIVE__CONFIGURATION { get; private set; }
 
     public void Set__Active_Tool(string tool_name)
     {
         if (RECORDED__TOOLS.ContainsKey(tool_name))
+        {
             TOOL__ACTIVE = RECORDED__TOOLS[tool_name];
+            TOOL__ACTIVE__CONFIGURATION =
+                TOOL__ACTIVE.Get__Invocation();
+        }
     }
 
     public void Load__Tool(string path)

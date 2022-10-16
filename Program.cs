@@ -3,9 +3,14 @@ using System.Diagnostics.CodeAnalysis;
 using Gwen.Net.OpenTk;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
+using PixelFormat = OpenTK.Graphics.OpenGL.PixelFormat;
 using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
 using KeyModifiers = OpenTK.Windowing.GraphicsLibraryFramework.KeyModifiers;
 using MouseButton = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
+using StbImageSharp;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 
 namespace GPU_Of_Life;
 
@@ -25,15 +30,6 @@ public class Program : Test__Window //GameWindow
     private History__Tool_Invocation HISTORY__TOOL_INVOCATION;
     private readonly Tool__Repository TOOL__REPOSITORY =
         new Tool__Repository();
-
-    private readonly Shader SHADER__TOOL__STENCIL;
-    private byte TOOL__STENCIL__VALUE = 255;
-    private int history__length = 100;
-    private int history__current_index = 0;
-    private int TOOL__FRAMEBUFFER;
-
-    private int stencil_vao;
-    private int stencil_vbo;
 
     private int VAO__CELL_POINTS;
     private int VBO__CELL_POINTS;
@@ -73,14 +69,6 @@ public class Program : Test__Window //GameWindow
     //: base(GameWindowSettings.Default, NativeWindowSettings.Default)
     {
         GRID__FRAMEBUFFER__COMPUTE = GL.GenFramebuffer();
-        TOOL__FRAMEBUFFER = GL.GenFramebuffer();
-
-        stencil_vao = GL.GenVertexArray();
-        GL.BindVertexArray(stencil_vao);
-        stencil_vbo = GL.GenBuffer();
-        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
-        Private_Clear__Stencil_History();
-        GL.BindVertexArray(0);
 
         BASE__VIEWPORT = new Viewport(Size);
         GLHelper.Push_Viewport(BASE__VIEWPORT);
@@ -124,16 +112,6 @@ public class Program : Test__Window //GameWindow
 
         if (err) { Close(); return; }
 
-        SHADER__TOOL__STENCIL =
-            new Shader.Builder()
-            .Begin()
-            .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Tool__Stencil__Vertex.vert", ref err)
-            .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Tool__Stencil__Fragment.frag", ref err)
-            .Link()
-            ;
-
-        if (err) { Close(); return; }
-
         Private_Establish__Grid();
     }
 
@@ -143,24 +121,6 @@ public class Program : Test__Window //GameWindow
 
         switch(e.Key)
         {
-            case Keys.Space:
-                foreach(Shader.Invocation invocation in HISTORY__TOOL_INVOCATION.TEST__get_values())
-                    Console.WriteLine(invocation);
-                break;
-            case Keys.T:
-                test_flop__render_tool = !test_flop__render_tool;
-                break;
-            case Keys.Left:
-                test__step--;
-                if (test__step < 0) test__step = 0;
-                Console.WriteLine($"step: {test__step}");
-                break;
-            case Keys.Right:
-                test__step++;
-                if (test__step >= HISTORY__TOOL_INVOCATION.Quantity__Of__Epochs_Generated) test__step = 
-                    HISTORY__TOOL_INVOCATION.Quantity__Of__Epochs_Generated - 1;
-                Console.WriteLine($"step: {test__step}");
-                break;
             case Keys.F1:
                 Private_Reset__Grid();
                 break;
@@ -194,6 +154,11 @@ public class Program : Test__Window //GameWindow
 
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Rectangle/"));
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Line/"));
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Full_Rectangle/"));
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Star/"));
+        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Full_Star/"));
+
         foreach(Tool tool in TOOL__REPOSITORY.TOOLS)
             UI.Load__Tool(tool);
 
@@ -206,7 +171,9 @@ public class Program : Test__Window //GameWindow
                 UI.Select__Tool(TOOL__REPOSITORY.TOOL__ACTIVE?.Get__Invocation());
             };
 
+        UI.Invoked__Load  +=  c => Private_Establish__Grid(c);
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
+        UI.Invoked__Save  +=  s => Private_Save__Grid(s);
         UI.Invoked__Reset += () => Private_Reset__Grid();
         UI.Toggle__Run    +=  b => GRID__IS_ACTIVE = b;
         UI.Pulsed__Step   += () => GRID__IS_STEPPING = true;
@@ -220,8 +187,16 @@ public class Program : Test__Window //GameWindow
                 GRID__DELAY__MS *= GRID__DELAY__MS; 
             };
 
-        UI.Updated__Stencil_Value +=
-            (stencil_value) => TOOL__STENCIL__VALUE = stencil_value;
+        UI.Updated__Tool_Uniform +=
+            (uniform) =>
+            {
+                TOOL__REPOSITORY?
+                    .TOOL__ACTIVE__CONFIGURATION?
+                    .Set__Uniform(uniform);
+            };
+
+        //UI.Updated__Stencil_Value +=
+        //    (stencil_value) => TOOL__STENCIL__VALUE = stencil_value;
     }
 
     protected override void OnResize(OpenTK.Windowing.Common.ResizeEventArgs e)
@@ -275,12 +250,10 @@ public class Program : Test__Window //GameWindow
         {
             if (HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
             {
-                Console.WriteLine("finish");
                 HISTORY__TOOL_INVOCATION.Finish();
             }
             mouse_origin = new Vector2(-1);
             mouse_previous = new Vector2(-1);
-            Private_Clear__Stencil_History(); 
             return; 
         }
 
@@ -306,9 +279,8 @@ public class Program : Test__Window //GameWindow
 
         if (!HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
         {
-            Console.WriteLine(">> PREPARING <<");
             Shader.Invocation invocation =
-                TOOL__REPOSITORY.Get__Active_Tool__Invocation()!;
+                TOOL__REPOSITORY.TOOL__ACTIVE__CONFIGURATION!.Clone()!;
 
             invocation.Mouse_Position__Origin.Internal__Value = mouse_origin;
             HISTORY__TOOL_INVOCATION.Prepare(invocation);
@@ -316,57 +288,95 @@ public class Program : Test__Window //GameWindow
         HISTORY__TOOL_INVOCATION.Preparing__Value!
             .Mouse_Position__Latest.Internal__Value =
             tool_position.Xy;
-        Console.WriteLine
-        (
-            $"updating value: {HISTORY__TOOL_INVOCATION.Preparing__Value.Mouse_Position__Origin.Internal__Value}"
-            +
-            $" -- {HISTORY__TOOL_INVOCATION.Preparing__Value.Mouse_Position__Latest.Internal__Value}"
-        );
-            
-
-        if (history__current_index >= history__length)
-            Private_Clear__Stencil_History();
-
-        if (history__current_index == 0)
-        {
-            Private_Buffer__Point(ref tool_position);
-            history__current_index++;
-        }
-        Private_Buffer__Point(ref tool_position);
-        history__current_index++;
+        HISTORY__TOOL_INVOCATION.Preparing__Value!
+            .Mouse_Position__Origin.Internal__Value =
+            mouse_origin;
     }
 
-    private void Private_Buffer__Point(ref Vector4 tool_position)
-    {
-        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
-        GL.BufferSubData
-        (
-            BufferTarget.ArrayBuffer, 
-            new IntPtr(history__current_index * 2 * sizeof(float)),
-            sizeof(float) * 2,
-            new float[] { tool_position.X, tool_position.Y }
-        );
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-    }
-
-    private void Private_Clear__Stencil_History()
-    {
-        history__current_index = 0;
-        GL.BindVertexArray(stencil_vao);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, stencil_vbo);
-        GL.BufferData(BufferTarget.ArrayBuffer, history__length * 2 * sizeof(float), IntPtr.Zero, BufferUsageHint.StreamDraw);
-        GL.VertexAttribPointer(0, 2, VertexAttribPointerType.Float, false, sizeof(float) * 2, 0);
-        GL.EnableVertexAttribArray(0);
-        GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-    }
-
-    private void Private_Establish__Grid(Grid_Configuration? grid_configuration = null)
+    private void Private_Establish__Grid
+    (
+        Grid_Configuration? grid_configuration = null
+    )
     {
         GRID__IS_ACTIVE = false;
         GRID__IS_STEPPING = false;
         GRID__IS_INITIAL = true;
         GRID__WIDTH  = grid_configuration?.Width  ?? 50;
         GRID__HEIGHT = grid_configuration?.Height ?? 50;
+
+        Texture.Direct__Pixel_Initalizer base_pixel_initalizer;
+
+        if (grid_configuration?.Image__Path != null)
+        {
+            byte[] byte_array;
+            ColorComponents color;
+            using (FileStream image_stream = File.Open(grid_configuration.Image__Path, FileMode.Open))
+            {
+                StbImage.stbi_set_flip_vertically_on_load(1);
+                ImageResult image =
+                    ImageResult.FromStream(image_stream);
+
+                GRID__WIDTH = image.Width;
+                GRID__HEIGHT = image.Height;
+                byte_array =
+                    image.Data;
+                color = image.Comp;
+            }
+
+            PixelInternalFormat internal_format;
+            PixelFormat format;
+
+            int channel_count;
+
+            switch(color)
+            {
+                default:
+                case ColorComponents.Grey:
+                    channel_count = 1;
+                    internal_format = PixelInternalFormat.Luminance;
+                    format = PixelFormat.Luminance;
+                    break;
+                case ColorComponents.GreyAlpha:
+                    channel_count = 2;
+                    internal_format = PixelInternalFormat.LuminanceAlpha;
+                    format = PixelFormat.LuminanceAlpha;
+                    break;
+                case ColorComponents.RedGreenBlue:
+                    channel_count = 3;
+                    internal_format = PixelInternalFormat.Rgb;
+                    format = PixelFormat.Rgb;
+                    break;
+                case ColorComponents.RedGreenBlueAlpha:
+                    channel_count = 4;
+                    internal_format = PixelInternalFormat.Rgba;
+                    format = PixelFormat.Rgba;
+                    break;
+            }
+
+            Console.WriteLine($"channel: {channel_count} - {internal_format} - {format}");
+
+            base_pixel_initalizer =
+                new Texture.Direct__Pixel_Initalizer
+                (
+                    channel_count,
+                    internal_format,
+                    format,
+                    PixelType.UnsignedByte,
+                    byte_buffer: byte_array
+                );
+        }
+        else
+        {
+            base_pixel_initalizer =
+                new Texture.Direct__Pixel_Initalizer
+                (
+                    4,
+                    PixelInternalFormat.Rgba,
+                    PixelFormat.Rgba,
+                    PixelType.UnsignedByte,
+                    seed: grid_configuration?.Seed
+                );
+        }
 
         GRID__CONFIGURATION = grid_configuration ?? new Grid_Configuration();
         UI?.Set__Seed(GRID__CONFIGURATION.Seed);
@@ -403,16 +413,6 @@ public class Program : Test__Window //GameWindow
         GL.BindVertexArray(0);
         GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
 
-        Texture.Direct__Pixel_Initalizer base_pixel_initalizer =
-                new Texture.Direct__Pixel_Initalizer
-                (
-                    4,
-                    PixelInternalFormat.Rgba,
-                    PixelFormat.Rgba,
-                    PixelType.UnsignedByte,
-                    seed: grid_configuration?.Seed
-                );
-
         GRID__TEXTURE__BASE =
             new Texture
             (
@@ -427,16 +427,8 @@ public class Program : Test__Window //GameWindow
                 100, 10,
                 100, 10
             );
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
-        GL.FramebufferTexture2D
-        (
-            FramebufferTarget.Framebuffer,
-            FramebufferAttachment.ColorAttachment0,
-            TextureTarget.Texture2D,
-            GRID__TEXTURE__BASE.TEXTURE_HANDLE,
-            0
-        );
+        if (TOOL__REPOSITORY.TOOL__ACTIVE?.Is__Requiring__Mouse_Position_History ?? false)
+            HISTORY__TOOL_INVOCATION.Is__Requiring_Mouse_Position_History = true;
 
         GRID__TEXTURE0 =
             new Texture
@@ -444,21 +436,54 @@ public class Program : Test__Window //GameWindow
                 GRID__WIDTH, GRID__HEIGHT,
                 new Texture.Direct__Pixel_Initalizer
                 (
-                    4,
-                    PixelInternalFormat.Rgba,
-                    PixelFormat.Rgba,
+                    base_pixel_initalizer.Channel_Count,
+                    base_pixel_initalizer.Internal_Format,
+                    base_pixel_initalizer.Pixel_Format,
                     PixelType.UnsignedByte,
                     byte_buffer: base_pixel_initalizer.Buffer__Bytes
                 )
             );
 
         GRID__TEXTURE1 =
-            new Texture(GRID__WIDTH, GRID__HEIGHT);
+            new Texture
+            (
+                GRID__WIDTH, GRID__HEIGHT,
+                base_pixel_initalizer.Channel_Count,
+                base_pixel_initalizer.Internal_Format,
+                base_pixel_initalizer.Pixel_Format
+            );
 
         GRID__TEXTURE__READ  = GRID__TEXTURE0;
         GRID__TEXTURE__WRITE = GRID__TEXTURE1;
 
         Private_Reset__Grid_Swap();
+    }
+
+    private void Private_Save__Grid(string path)
+    {
+        Bitmap bmp = new Bitmap(GRID__WIDTH, GRID__HEIGHT);
+        BitmapData data = 
+            bmp.LockBits
+            (
+                new Rectangle(0,0,GRID__WIDTH,GRID__HEIGHT),
+                System.Drawing.Imaging.ImageLockMode.WriteOnly,
+                System.Drawing.Imaging.PixelFormat.Format32bppArgb
+            );
+
+        GL.BindTexture(TextureTarget.Texture2D, GRID__TEXTURE__BASE.TEXTURE_HANDLE);
+        GL.GetTexImage
+        (
+            TextureTarget.Texture2D,
+            0,
+            PixelFormat.Bgra,
+            PixelType.UnsignedByte,
+            data.Scan0
+        );
+        GL.BindTexture(TextureTarget.Texture2D, 0);
+
+        bmp.UnlockBits(data);
+        bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+        bmp.Save(path, ImageFormat.Png);
     }
 
     private void Private_Reset__Grid_Swap()
@@ -508,18 +533,10 @@ public class Program : Test__Window //GameWindow
     {
         Private_Render__Tool();
 
-        //if (GRID__IS_ACTIVE)
-        //    Console.WriteLine("ACTIVE");
-        //if (GRID__IS_STEPPING)
-        //{
-        //    GRID__IS_STEPPING = false;
-        //    Console.WriteLine("STEPPING");
-        //}
-        //return;
-        //if (!GRID__IS_ACTIVE && !GRID__IS_STEPPING) return;
         if (!GRID__IS_ACTIVE && !GRID__IS_STEPPING) goto render_grid;
         if (GRID__IS_STEPPING) GRID__IS_STEPPING = false;
         else if (TIME__ELAPSED < GRID__DELAY__MS) goto render_grid;
+
         GRID__IS_INITIAL = false;
         TIME__ELAPSED = 0;
         
@@ -529,26 +546,14 @@ render_grid:
         Private_Render__Grid();
     }
 
-    bool test_flop__render_tool = false;
     private void Private_Render__Tool()
     {
-        if (test_flop__render_tool) goto test;
-        GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
-        SHADER__TOOL__STENCIL.Use();
-        GL.Uniform1(SHADER__TOOL__STENCIL.Get__Uniform("life"), TOOL__STENCIL__VALUE / 255f);
-        GL.BindVertexArray(stencil_vao);
-        GL.DrawArrays(PrimitiveType.LineStrip, 0, history__current_index);
-        GLHelper.Pop_Viewport();
-        return;
-test:
-        //Console.WriteLine("impl 494 Program.cs");
         bool error = false;
         if (HISTORY__TOOL_INVOCATION.Is__In_Need_Of__Update || HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
         {
             GRID__TEXTURE__BASE =
                 HISTORY__TOOL_INVOCATION.Aggregate__Epochs(ref error);
-            return;
+            if (GRID__IS_INITIAL) Private_Reset__Grid_Swap();
         }
     }
 
@@ -571,24 +576,6 @@ test:
     int test__step = 0;
     private void Private_Render__Grid()
     {
-        if (!test_flop__render_tool) goto _default;
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        GL.ActiveTexture(TextureUnit.Texture0);
-        GL.BindTexture
-        (
-            TextureTarget.Texture2D, 
-            GRID__TEXTURE__WRITE.TEXTURE_HANDLE
-        );
-        SHADER__DRAW.Use();
-        GL.Uniform1(SHADER__DRAW.Get__Uniform("width"), (float)GRID__WIDTH);
-        GL.Uniform1(SHADER__DRAW.Get__Uniform("height"), (float)GRID__HEIGHT);
-        GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("projection"), false, ref GRID__CAMERA.GRID__PROJECTION);
-        GL.UniformMatrix4(SHADER__DRAW.Get__Uniform("translation"), false, ref GRID__CAMERA.GRID__TRANSLATION);
-        GL.BindVertexArray(VAO__CELL_POINTS);
-        GL.DrawArrays(PrimitiveType.Points, 0, CELL__COUNT);
-
-_default:
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture
@@ -624,7 +611,6 @@ _default:
                 break;
         }
 
-        //TODO: Console.WriteLine("might need to viewport this too");
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, GRID__FRAMEBUFFER__COMPUTE);
         GL.FramebufferTexture2D
         (
@@ -637,18 +623,6 @@ _default:
 
         if (GRID__IS_INITIAL)
             GRID__TEXTURE__READ = GRID__TEXTURE__BASE;
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, TOOL__FRAMEBUFFER);
-        GL.FramebufferTexture2D
-        (
-            FramebufferTarget.Framebuffer,
-            FramebufferAttachment.ColorAttachment0,
-            TextureTarget.Texture2D,
-            GRID__TEXTURE__READ.TEXTURE_HANDLE,
-            0
-        );
-
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }
 
     public static void Main(string[] args)

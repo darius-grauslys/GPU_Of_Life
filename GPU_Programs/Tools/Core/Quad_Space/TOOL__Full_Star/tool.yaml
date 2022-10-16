@@ -1,8 +1,13 @@
-Name: Rectangle 
+Name: Star
 Is__Requiring__Mouse_Position_History: false
 Uniforms:
 - Type: float
   Name: life
   Value: 1
   Min: 0
+  Max: 1
+- Type: float
+  Name: arm_length
+  Value: 0.5
+  Min: 0.001
   Max: 1

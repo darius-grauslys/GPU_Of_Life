@@ -1,5 +1,6 @@
 
 using Gwen.Net;
+using Gwen.Net.CommonDialog;
 using Gwen.Net.Control;
 using Gwen.Net.Control.Layout;
 
@@ -25,6 +26,9 @@ public class Gwen_UI : ControlBase
     private bool _toggle__run;
 
     public event Action<Grid_Configuration>? Invoked__New;
+    public event Action<Grid_Configuration>? Invoked__Load;
+    public event Action<string>? Invoked__Save;
+
     public event Action? Invoked__Reset;
     public event Action<bool>? Toggle__Run;
     public event Action? Pulsed__Step;
@@ -32,10 +36,9 @@ public class Gwen_UI : ControlBase
     public event Action<int, int>? Render__Grid;
 
     public event Action<float>? Updated__Compute_Speed;
-    public event Action<byte>? Updated__Stencil_Value;
 
     public event Action<string>? Updated__Tool_Selection;
-    public event Action<object>? Updated__Tool_Uniform;
+    public event Action<Shader.IUniform>? Updated__Tool_Uniform;
 
     public event Func<string, Tool>? Loaded__Tool;
 
@@ -63,9 +66,9 @@ public class Gwen_UI : ControlBase
         MenuItem menu_item__file = new MenuItem(_menu) { Text = "File" };
         {
             menu_item__file.Menu.AddItem("New").Clicked += (s,e) => Private_Dialog__New_Configuration();
-            menu_item__file.Menu.AddItem("Load").Clicked += (s,e) => { };
-            menu_item__file.Menu.AddItem("Save").Clicked += (s,e) => { };
-            menu_item__file.Menu.AddItem("Save As").Clicked += (s,e) => { };
+            menu_item__file.Menu.AddItem("Load").Clicked += (s,e) => Private_Dialog__Load();
+            menu_item__file.Menu.AddItem("Save").Clicked += (s,e) => Private_Dialog__Save();
+            menu_item__file.Menu.AddItem("Save As").Clicked += (s,e) => Private_Dialog__Save();
         }
 
         // edit
@@ -129,14 +132,6 @@ public class Gwen_UI : ControlBase
         new Label(bar) { Text = "Simulation Speed: " };
 
         _seed = new Label(bar) { Dock = Dock.Left };
-
-        NumericUpDown_AsInt stencil_strength = new NumericUpDown_AsInt(bar) { Min = 0, Max = 255 };
-        stencil_strength.Size = new Size(100, (int)(simulation_speed.Height * 1.5f));
-        stencil_strength.Value = 255;
-        stencil_strength
-            .ValueChanged += (s,e) => Updated__Stencil_Value?.Invoke((byte)stencil_strength.Value);
-
-        new Label(bar) { Text = "Stencil Strength: " };
     }
 
     protected override void Render(Gwen.Net.Skin.SkinBase skin)
@@ -171,6 +166,46 @@ public class Gwen_UI : ControlBase
             ;
 
         Toggle__Run?.Invoke(_toggle__run);
+    }
+
+    private void Private_Dialog__Load()
+    {
+        OpenFileDialog dialog =
+            Gwen.Net.Xml.Component.Create<OpenFileDialog>(this);
+
+        dialog.Title = "Load Image";
+        dialog.InitialFolder = Directory.GetCurrentDirectory();
+
+        dialog.Callback +=
+            file_path => 
+            {
+                if (file_path == null)
+                    return;
+
+                Grid_Configuration grid_configuration =
+                    new Grid_Configuration();
+
+                grid_configuration.Image__Path = file_path;
+                Invoked__Load?.Invoke(grid_configuration);
+            };
+    }
+
+    private void Private_Dialog__Save()
+    {
+        SaveFileDialog dialog =
+            Gwen.Net.Xml.Component.Create<SaveFileDialog>(this);
+
+        dialog.Title = "Save Image";
+        dialog.InitialFolder = Directory.GetCurrentDirectory();
+
+        dialog.Callback +=
+            file_path => 
+            {
+                if (file_path == null)
+                    return;
+
+                Invoked__Save?.Invoke(file_path);
+            };
     }
 
     private void Private_Dialog__New_Configuration()
@@ -279,7 +314,7 @@ public class Gwen_UI : ControlBase
         if (tool_invocation == null) return;
         if (tool_invocation.Uniform1__Float != null)
         {
-            foreach(Shader.Uniform<float> u_float in tool_invocation.Uniform1__Float)
+            foreach(Shader.IUniform<float> u_float in tool_invocation.Uniform1__Float.Values)
             {
                 Private_Display__Uniform_Field
                 (
@@ -296,12 +331,12 @@ public class Gwen_UI : ControlBase
     private void Private_Display__Uniform_Field<T>
     (
         Shader.IUniform<T> uniform,
-        Action<T?> callback__value_updated
+        Action<Shader.IUniform?> callback__value_updated
     )
     where T : struct
     {
-                Console.WriteLine("---");
-        ControlBase field = Tool__Fields.AddNode(uniform.Name);
+        TreeNode field = Tool__Fields.AddNode(uniform.Name);
+        field.ExpandAll();
         //new Label(Tool__Fields) { Text = uniform.Name, Size = new Size(Util.Ignore, 25) };
         NumericUpDown numeric =
             (typeof(T) == typeof(int) || typeof(T) == typeof(uint))
@@ -317,10 +352,10 @@ public class Gwen_UI : ControlBase
         if (typeof(T) == typeof(uint))
             numeric.Min = 0;
 
-        if (uniform is Shader.Uniform__Clamped<T>)
+        if (uniform is Shader.IUniform__Clamped<T>)
         {
-            Shader.Uniform__Clamped<T> clamped_uniform =
-                (Shader.Uniform__Clamped<T>)uniform;
+            Shader.IUniform__Clamped<T> clamped_uniform =
+                (Shader.IUniform__Clamped<T>)uniform;
 
             float min__as_float =
                 float.Parse(clamped_uniform.Min.ToString()!);
@@ -338,7 +373,17 @@ public class Gwen_UI : ControlBase
         }
         
         numeric.ValueChanged +=
-            (s,e) => callback__value_updated.Invoke(numeric.Value as T?);
+            (s,e) =>
+            {
+                callback__value_updated?
+                .Invoke
+                (
+                    Shader.IUniform
+                    .From<T>(numeric.Name, numeric.Value)
+                );
+            };
+
+        numeric.Value = float.Parse(uniform.Value.ToString()!);
     }
 
     private class NumericUpDown_AsInt : NumericUpDown
