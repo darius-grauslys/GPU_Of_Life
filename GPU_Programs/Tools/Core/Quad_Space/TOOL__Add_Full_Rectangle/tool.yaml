@@ -1,0 +1,27 @@
+Name: Add_Full_Rectangle 
+Is__Requiring__Mouse_Position_History: false
+Is__Using_Blending: true
+Blend__Mode: FuncReverseSubtract
+Blend__Factor_Source: One
+Blend__Factor_Destination: One
+Uniforms:
+- Type: float
+  Name: red
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: blue
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: green
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: alpha
+  Value: 1
+  Min: 0
+  Max: 1

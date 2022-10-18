@@ -21,9 +21,9 @@ public class Program : Test__Window //GameWindow
     [AllowNull]
     private Gwen_UI UI;
 
-    private readonly Shader SHADER__COMPUTE;
+    private Shader SHADER__COMPUTE;
     [AllowNull]
-    private readonly Shader SHADER__DRAW;
+    private Shader SHADER__DRAW;
 
     [AllowNull]
     private History__Tool_Invocation HISTORY__TOOL_INVOCATION;
@@ -64,6 +64,8 @@ public class Program : Test__Window //GameWindow
 
     private double TIME__ELAPSED;
 
+    private bool Is__UI_Busy  = false;
+
     public Program() 
     //: base(GameWindowSettings.Default, NativeWindowSettings.Default)
     {
@@ -87,29 +89,13 @@ public class Program : Test__Window //GameWindow
                 )
             );
 
-        bool err = false;
-        SHADER__COMPUTE =
-            new Shader.Builder()
-            .Begin()
-            .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Compute__Vertex.vert", ref err)
-            .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Compute__Fragmentation.frag", ref err)
-            .Link()
-            ;
+        string? err = Private_Load__Grid_Compute_Shader();
 
-        if (err) { Close(); return; }
+        if (err != null) { Close(); return; }
 
-        err = false;
+        err = Private_Load__Grid_Shader();
 
-        SHADER__DRAW =
-            new Shader.Builder()
-            .Begin()
-            .Add__Shader_From_File(ShaderType.VertexShader, "Shader_Draw__Vertex.vert", ref err)
-            .Add__Shader_From_File(ShaderType.GeometryShader, "Shader_Draw__Geometry.geom", ref err)
-            .Add__Shader_From_File(ShaderType.FragmentShader, "Shader_Draw__Fragmentation.frag", ref err)
-            .Link()
-            ;
-
-        if (err) { Close(); return; }
+        if (err != null) { Close(); return; }
 
         Private_Establish__Grid();
     }
@@ -156,10 +142,12 @@ public class Program : Test__Window //GameWindow
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Line/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Full_Rectangle/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Star/"));
-        TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Full_Star/"));
+        //TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Full_Star/"));
 
         foreach(Tool tool in TOOL__REPOSITORY.TOOLS)
             UI.Load__Tool(tool);
+
+        UI.Status__UI_Busy += status => Is__UI_Busy = status;
 
         UI.Updated__Tool_Selection +=
             (tool_name) => 
@@ -169,6 +157,10 @@ public class Program : Test__Window //GameWindow
                     TOOL__REPOSITORY.TOOL__ACTIVE!.Is__Requiring__Mouse_Position_History;
                 UI.Select__Tool(TOOL__REPOSITORY.TOOL__ACTIVE?.Get__Invocation());
             };
+
+        UI.Loaded__Grid_Shader +=  p => Private_Load__Grid_Shader(p);
+        UI.Loaded__Grid_Compute_Shader +=  p => Private_Load__Grid_Compute_Shader(p);
+        UI.Loaded__Tool   +=  p => Private_Load__Tool(p);
 
         UI.Invoked__Load  +=  c => Private_Establish__Grid(c);
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
@@ -236,11 +228,92 @@ public class Program : Test__Window //GameWindow
         GRID__CAMERA.Process__Scroll(e);
     }
 
+    private string? Private_Load__Tool(string path)
+    {
+        try
+        {
+            Tool tool = TOOL__REPOSITORY.Load__Tool(path);
+            UI.Load__Tool(tool);
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+        return null;
+    }
+
+    public const string SHADER__DRAW__FILE_NAME_VERTEX =
+        "Shader_Draw__Vertex.vert";
+    public const string SHADER__DRAW__FILE_NAME_GEOMETRY =
+        "Shader_Draw__Geometry.geom";
+    public const string SHADER__DRAW__FILE_NAME_FRAGMENT =
+        "Shader_Draw__Fragmentation.frag";
+    private string? Private_Load__Grid_Shader(string? path = null)
+    {
+        string path_vert =
+            (path != null)
+            ? Path.Combine(path, SHADER__DRAW__FILE_NAME_VERTEX)
+            : Path.Combine(Directory.GetCurrentDirectory(), SHADER__DRAW__FILE_NAME_VERTEX)
+            ;
+        string path_geom =
+            (path != null)
+            ? Path.Combine(path, SHADER__DRAW__FILE_NAME_GEOMETRY)
+            : Path.Combine(Directory.GetCurrentDirectory(), SHADER__DRAW__FILE_NAME_GEOMETRY)
+            ;
+        string path_frag =
+            (path != null)
+            ? Path.Combine(path, SHADER__DRAW__FILE_NAME_FRAGMENT)
+            : Path.Combine(Directory.GetCurrentDirectory(), SHADER__DRAW__FILE_NAME_FRAGMENT)
+            ;
+        bool err = false;
+        Shader shader =
+            new Shader.Builder()
+            .Begin()
+            .Add__Shader_From_File(ShaderType.VertexShader, path_vert, ref err)
+            .Add__Shader_From_File(ShaderType.GeometryShader, path_geom, ref err)
+            .Add__Shader_From_File(ShaderType.FragmentShader, path_frag, ref err)
+            .Link()
+            ;
+
+        if (!err) SHADER__DRAW = shader;
+        return (err) ? "An error has occured." : null;
+    }
+
+    public const string SHADER__COMPUTE__FILE_NAME_VERTEX =
+        "Shader_Compute__Vertex.vert";
+    public const string SHADER__COMPUTE__FILE_NAME_FRAGMENT =
+        "Shader_Compute__Fragmentation.frag";
+    private string? Private_Load__Grid_Compute_Shader(string? path = null)
+    {
+        string path_vert =
+            (path != null)
+            ? Path.Combine(path, SHADER__COMPUTE__FILE_NAME_VERTEX)
+            : Path.Combine(Directory.GetCurrentDirectory(), SHADER__COMPUTE__FILE_NAME_VERTEX)
+            ;
+        string path_frag =
+            (path != null)
+            ? Path.Combine(path, SHADER__COMPUTE__FILE_NAME_FRAGMENT)
+            : Path.Combine(Directory.GetCurrentDirectory(), SHADER__COMPUTE__FILE_NAME_FRAGMENT)
+            ;
+        bool err = false;
+        Shader shader =
+            new Shader.Builder()
+            .Begin()
+            .Add__Shader_From_File(ShaderType.VertexShader, path_vert, ref err)
+            .Add__Shader_From_File(ShaderType.FragmentShader, path_frag, ref err)
+            .Link()
+            ;
+
+        if (!err) SHADER__COMPUTE = shader;
+        return (err) ? "An error has occured." : null;
+    }
+
     Vector2 mouse_previous = new Vector2(-1);
     Vector2 mouse_origin   = new Vector2(-1);
 
     private void Private_Process__Tool()
     {
+        if (Is__UI_Busy) return;
         if (TOOL__REPOSITORY.TOOL__ACTIVE == null) return;
         if (MousePosition.X < UI.GRID__X || MousePosition.X > UI.GRID__X + UI.GRID__WIDTH)  return;
         if (MousePosition.Y < UI.GRID__Y || MousePosition.Y > UI.GRID__Y + UI.GRID__HEIGHT) return;
@@ -304,6 +377,7 @@ public class Program : Test__Window //GameWindow
         GRID__HEIGHT = grid_configuration?.Height ?? 50;
 
         Texture.Direct__Pixel_Initalizer base_pixel_initalizer;
+        GRID__CONFIGURATION = grid_configuration ?? new Grid_Configuration();
 
         if (grid_configuration?.Image__Path != null)
         {
@@ -371,11 +445,10 @@ public class Program : Test__Window //GameWindow
                     PixelInternalFormat.Rgba,
                     PixelFormat.Rgba,
                     PixelType.UnsignedByte,
-                    seed: grid_configuration?.Seed
+                    seed: GRID__CONFIGURATION.Seed
                 );
         }
 
-        GRID__CONFIGURATION = grid_configuration ?? new Grid_Configuration();
         UI?.Set__Seed(GRID__CONFIGURATION.Seed);
 
         if (VAO__CELL_POINTS != 0)
@@ -497,6 +570,8 @@ public class Program : Test__Window //GameWindow
         {
             GRID__TEXTURE__BASE.Pixel_Buffer_Initalizer.Seed = new Random().Next();
             GRID__TEXTURE__BASE.Reinitalize__Texture();
+
+            HISTORY__TOOL_INVOCATION.Rebase(GRID__TEXTURE__BASE);
         }
         UI.Set__Seed(GRID__TEXTURE__BASE.Pixel_Buffer_Initalizer.Seed);
         
@@ -518,6 +593,7 @@ public class Program : Test__Window //GameWindow
             0, 0,
             GRID__WIDTH, GRID__HEIGHT
         );
+
         Private_Reset__Grid_Swap();
         //GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }

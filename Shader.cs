@@ -13,6 +13,14 @@ public partial class Shader
         public Vertex_Array_Object VAO;
         public int Primtive__Count;
 
+        public bool Is__Using_Blending;
+        public BlendEquationMode Blend__Mode =
+            BlendEquationMode.FuncAdd;
+        public BlendingFactor Blend__Factor_Source =
+            BlendingFactor.Zero;
+        public BlendingFactor Blend__Factor_Destination =
+            BlendingFactor.Zero;
+
         public Uniform__Vector2 Mouse_Position__Origin =
             new Uniform__Vector2("mouse_origin", new Vector2(-1));
         public Uniform__Vector2 Mouse_Position__Latest =
@@ -47,7 +55,12 @@ public partial class Shader
                 uniform2__ivec2 = null,
 
             Dictionary<string, IUniform>?
-                uniform__mat4 = null
+                uniform__mat4 = null,
+
+            bool is__using_blending = false,
+            BlendEquationMode blend_mode = BlendEquationMode.FuncAdd,
+            BlendingFactor blend__factor_source = BlendingFactor.Zero,
+            BlendingFactor blend__factor_destination = BlendingFactor.Zero
         )
         {
 
@@ -90,6 +103,11 @@ public partial class Shader
                 ? new Dictionary<string, IUniform>(uniform__mat4)
                 : null
                 ;
+
+            Is__Using_Blending = is__using_blending;
+            Blend__Mode = blend_mode;
+            Blend__Factor_Source = blend__factor_source;
+            Blend__Factor_Destination = blend__factor_destination;
         }
 
         public void Set__Uniform(IUniform uniform)
@@ -133,7 +151,12 @@ public partial class Shader
                 Uniform2__Vector2,
                 Uniform2__Vector2i,
                                        
-                Uniform__Matrix4
+                Uniform__Matrix4,
+
+                Is__Using_Blending,
+                Blend__Mode,
+                Blend__Factor_Source,
+                Blend__Factor_Destination
             );
 
             invocation_clone.Mouse_Position__Origin =

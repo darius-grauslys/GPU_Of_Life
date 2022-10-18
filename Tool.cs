@@ -20,6 +20,10 @@ public class Tool
 
         public string Name { get; set; } = "Tool";
         public bool Is__Requiring__Mouse_Position_History { get; set; }
+        public bool Is__Using_Blending { get; set; }
+        public BlendEquationMode Blend__Mode { get; set; }
+        public BlendingFactor Blend__Factor_Source { get; set; }
+        public BlendingFactor Blend__Factor_Destination { get; set; }
 
         public List<Uniform> Uniforms { get; set; } =
             new List<Uniform>();
@@ -200,7 +204,8 @@ public class Tool
 
         public Shader.Invocation Get__As_Invocation
         (
-            Shader shader
+            Shader shader,
+            Configuration configuration
         )
         {
             Dictionary<string, Shader.IUniform> uniform1__int = new Dictionary<string, Shader.IUniform>();
@@ -244,7 +249,11 @@ public class Tool
                     uniform1__float,
                     uniform1__double,
                     uniform2__vector2,
-                    null
+                    null,
+                    is__using_blending : configuration.Is__Using_Blending,
+                    blend_mode: configuration.Blend__Mode,
+                    blend__factor_source: configuration.Blend__Factor_Source,
+                    blend__factor_destination: configuration.Blend__Factor_Destination
                 );
         }
 
@@ -303,7 +312,7 @@ public class Tool
 
     public Shader.Invocation Get__Invocation()
     {
-        return UNIFORM__TABLE.Get__As_Invocation(Tool__Shader);
+        return UNIFORM__TABLE.Get__As_Invocation(Tool__Shader, Tool__Configuration);
     }
 
     public static Tool Load(string folder_path)

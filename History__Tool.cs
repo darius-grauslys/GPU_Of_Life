@@ -105,8 +105,19 @@ public class History__Tool_Invocation
                 base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
             );
 
+        GLHelper.Push_Viewport(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
+        GLHelper.Pop_Viewport();
+    }
+
+    public void Rebase(Texture base_aggregation)
+    {
+        Clear();
+        GLHelper.Push_Viewport(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
+        SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
+        SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
+        GLHelper.Pop_Viewport();
     }
 
     public void Buffer__Mouse_Position(Vector2 mouse_position)

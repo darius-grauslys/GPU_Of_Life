@@ -30,6 +30,13 @@ public class Shader_Invocation__Aggregator
             0
         );
 
+        if (invocation.Is__Using_Blending)
+        {
+            GL.Enable(EnableCap.Blend);
+            GL.BlendEquation(invocation.Blend__Mode);
+            GL.BlendFunc(invocation.Blend__Factor_Source, invocation.Blend__Factor_Destination);
+        }
+
         invocation.Shader.Use();
         invocation.Set__Uniform(invocation.Mouse_Position__Latest);
         invocation.Set__Uniform(invocation.Mouse_Position__Origin);
@@ -48,6 +55,11 @@ public class Shader_Invocation__Aggregator
         //GL.Finish();
 
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+        if (invocation.Is__Using_Blending)
+        {
+            GL.Disable(EnableCap.Blend);
+            GL.BlendEquation(BlendEquationMode.FuncAdd);
+        }
     }
 
     private void Private_Bind__Uniforms<T>

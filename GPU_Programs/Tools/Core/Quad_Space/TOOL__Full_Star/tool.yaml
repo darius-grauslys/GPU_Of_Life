@@ -1,5 +1,9 @@
 Name: Star
 Is__Requiring__Mouse_Position_History: false
+Is__Using_Blending: false
+Blend__Mode: FuncAdd
+Blend__Factor_Source: Zero
+Blend__Factor_Destination: Zero
 Uniforms:
 - Type: float
   Name: life

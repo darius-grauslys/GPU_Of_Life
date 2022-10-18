@@ -22,10 +22,12 @@ public class Tool__Repository
         }
     }
 
-    public void Load__Tool(string path)
+    public Tool Load__Tool(string path)
     {
         Tool tool = Tool.Load(path);
 
         RECORDED__TOOLS.Add(tool.Name, tool);
+
+        return tool;
     }
 }

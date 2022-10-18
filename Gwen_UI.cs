@@ -25,6 +25,8 @@ public class Gwen_UI : ControlBase
 
     private bool _toggle__run;
 
+    public event Action<bool>? Status__UI_Busy;
+
     public event Action<Grid_Configuration>? Invoked__New;
     public event Action<Grid_Configuration>? Invoked__Load;
     public event Action<string>? Invoked__Save;
@@ -40,7 +42,9 @@ public class Gwen_UI : ControlBase
     public event Action<string>? Updated__Tool_Selection;
     public event Action<Shader.IUniform>? Updated__Tool_Uniform;
 
-    public event Func<string, Tool>? Loaded__Tool;
+    public event Func<string, string?>? Loaded__Tool;
+    public event Func<string, string?>? Loaded__Grid_Shader;
+    public event Func<string, string?>? Loaded__Grid_Compute_Shader;
 
     private TreeControl Tool__Fields;
     private ControlBase Tool__Selection;
@@ -82,7 +86,24 @@ public class Gwen_UI : ControlBase
         {
             menu_item__edit.Menu.AddItem("Resize").Clicked += (s,e) => { };
             menu_item__edit.Menu.AddItem("Shift").Clicked += (s,e) => { };
-            menu_item__edit.Menu.AddItem("Configure").Clicked += (s,e) => { };
+            menu_item__edit.Menu.AddItem("Load Tool").Clicked += 
+                (s,e) => Private_Dialog__Load_Shader
+                (
+                    "Select Tool Directory",
+                    path => Loaded__Tool?.Invoke(path)
+                );
+            menu_item__edit.Menu.AddItem("Load Grid Shader").Clicked +=
+                (s,e) => Private_Dialog__Load_Shader
+                (
+                    "Select Grid Shader Directory",
+                    path => Loaded__Grid_Shader?.Invoke(path)
+                );
+            menu_item__edit.Menu.AddItem("Load Compute Shader").Clicked +=
+                (s,e) => Private_Dialog__Load_Shader
+                (
+                    "Select Grid Compute Shader Directory",
+                    path => Loaded__Grid_Compute_Shader?.Invoke(path)
+                );
         }
 
         // tool
@@ -172,6 +193,7 @@ public class Gwen_UI : ControlBase
     {
         OpenFileDialog dialog =
             Gwen.Net.Xml.Component.Create<OpenFileDialog>(this);
+        Status__UI_Busy?.Invoke(true);
 
         dialog.Title = "Load Image";
         dialog.InitialFolder = Directory.GetCurrentDirectory();
@@ -179,6 +201,7 @@ public class Gwen_UI : ControlBase
         dialog.Callback +=
             file_path => 
             {
+                Status__UI_Busy?.Invoke(false);
                 if (file_path == null)
                     return;
 
@@ -194,6 +217,7 @@ public class Gwen_UI : ControlBase
     {
         SaveFileDialog dialog =
             Gwen.Net.Xml.Component.Create<SaveFileDialog>(this);
+        Status__UI_Busy?.Invoke(true);
 
         dialog.Title = "Save Image";
         dialog.InitialFolder = Directory.GetCurrentDirectory();
@@ -201,10 +225,37 @@ public class Gwen_UI : ControlBase
         dialog.Callback +=
             file_path => 
             {
+                Status__UI_Busy?.Invoke(false);
                 if (file_path == null)
                     return;
 
                 Invoked__Save?.Invoke(file_path);
+            };
+    }
+
+    private void Private_Dialog__Load_Shader
+    (
+        string message,
+        Func<string, string?> callback
+    )
+    {
+        FolderBrowserDialog dialog =
+            Gwen.Net.Xml.Component.Create<FolderBrowserDialog>(this);
+        Status__UI_Busy?.Invoke(true);
+
+        dialog.Title = message;
+        dialog.InitialFolder = Directory.GetCurrentDirectory();
+
+        dialog.Callback +=
+            file_path => 
+            {
+                Status__UI_Busy?.Invoke(false);
+                if (file_path == null)
+                    return;
+
+                string? status = callback.Invoke(file_path);
+                if (status != null)
+                    new MessageBox(this, status, "Failed to load.", MessageBoxButtons.OK).Show();
             };
     }
 
@@ -291,7 +342,10 @@ public class Gwen_UI : ControlBase
             { Text = "Cancel", Dock = Dock.Right }
             .Clicked += (s,e) => dialog.Close();
 
+        Status__UI_Busy?.Invoke(true);
         dialog.Show();
+        dialog.Closed +=
+            (s,e) => Status__UI_Busy?.Invoke(false);
     }
 
     public void Load__Tool(Tool ui_tool)
@@ -363,10 +417,7 @@ public class Gwen_UI : ControlBase
                 float.Parse(clamped_uniform.Max.ToString()!);
 
             numeric.Min =
-                (min__as_float < numeric.Min)
-                ? numeric.Min
-                : min__as_float
-                ;
+                min__as_float;
 
             numeric.Max =
                 max__as_float;
@@ -389,7 +440,7 @@ public class Gwen_UI : ControlBase
     private class NumericUpDown_AsInt : NumericUpDown
     {
         public NumericUpDown_AsInt(ControlBase parent)
-            : base(parent)
+        : base(parent)
         {}
 
         public override float Value
@@ -400,6 +451,156 @@ public class Gwen_UI : ControlBase
                 m_Value = value;
                 Text = ((int)value).ToString();
             }
+        }
+    }
+
+    private class UI__Tool_Invocation_Field : TreeControl
+    {
+        public Shader.Invocation? Configured__Invocation { get; set; }
+
+        public UI__Tool_Invocation_Field
+        (
+            ControlBase parent, 
+            Shader.Invocation? invocation,
+            Action<Shader.IUniform>? callback__uniform_updated = null,
+            bool is__specifying_mouse_positions = false
+        )
+        : base(parent)
+        {
+            RemoveAllNodes();
+            if (invocation == null) return;
+            if (callback__uniform_updated == null)
+                Configured__Invocation = invocation.Clone();
+            if (invocation.Uniform1__Float != null)
+            {
+                foreach(Shader.IUniform<float> u_float in invocation.Uniform1__Float.Values)
+                {
+                    Private_Display__Uniform1_Field
+                    (
+                        u_float,
+                        uniform =>
+                        {
+                            if (uniform == null)
+                                return;
+                            if (callback__uniform_updated == null)
+                            {
+                                Configured__Invocation?.Set__Uniform(uniform);
+                                return;
+                            }
+                            callback__uniform_updated?.Invoke(uniform);
+                        }
+                    );
+                }
+            }
+        }
+
+        private NumericUpDown Private_Get__Numeric
+        (
+            string uniform_name,
+            bool is__float_or_int, 
+            float value, 
+            float? min = null, 
+            float? max = null
+        )
+        {
+            TreeNode field = AddNode(uniform_name);
+            field.ExpandAll();
+            NumericUpDown numeric =
+                is__float_or_int
+                ? new NumericUpDown_AsInt(field)
+                : new NumericUpDown(field)
+                ;
+            numeric.Size = new Size(Util.Ignore, 25);
+            numeric.MinimumSize = new Size(100, 25);
+            numeric.Dock = Dock.Bottom;
+
+            numeric.Name = uniform_name;
+
+            numeric.Min =
+                min
+                ??
+                numeric.Min
+                ;
+
+            numeric.Max =
+                max
+                ??
+                numeric.Max
+                ;
+            
+            numeric.Value = value;
+
+            return numeric;
+        }
+
+        private void Private_Display__Uniform1_Field<T>
+        (
+            Shader.IUniform<T> uniform,
+            Action<Shader.IUniform?> callback__value_updated
+        )
+        where T : struct
+        {
+            TreeNode field = AddNode(uniform.Name);
+            field.ExpandAll();
+            NumericUpDown numeric =
+                (typeof(T) == typeof(int) || typeof(T) == typeof(uint))
+                ? new NumericUpDown_AsInt(field)
+                : new NumericUpDown(field)
+                ;
+            numeric.Size = new Size(Util.Ignore, 25);
+            numeric.MinimumSize = new Size(100, 25);
+            numeric.Dock = Dock.Bottom;
+
+            numeric.Name = uniform.Name;
+
+            if (typeof(T) == typeof(uint))
+                numeric.Min = 0;
+
+            if (uniform is Shader.IUniform__Clamped<T>)
+            {
+                Shader.IUniform__Clamped<T> clamped_uniform =
+                    (Shader.IUniform__Clamped<T>)uniform;
+
+                float min__as_float =
+                    float.Parse(clamped_uniform.Min.ToString()!);
+                float max__as_float =
+                    float.Parse(clamped_uniform.Max.ToString()!);
+
+                numeric.Min =
+                    min__as_float;
+
+                numeric.Max =
+                    max__as_float;
+            }
+            
+            numeric.ValueChanged +=
+                (s,e) =>
+                {
+                    callback__value_updated?
+                    .Invoke
+                    (
+                        Shader.IUniform
+                        .From<T>(numeric.Name, numeric.Value)
+                    );
+                };
+
+            numeric.Value = float.Parse(uniform.Value.ToString()!);
+        }
+
+        private void Private_Display__Uniform2_Field<T>
+        (
+            Shader.IUniform<T> uniform,
+            Action<Shader.IUniform?> callback__value_updated
+        )
+        where T : struct
+        {
+            (float X, float Y)? tuple =
+                uniform.Value as (float X, float Y)?;
+
+            if (tuple == null)
+                throw new ArgumentException($"Tool is configured incorrectly. Cannot specify {uniform.Name} as a Uniform2 - it is a {uniform.Value.GetType()}");
+
+
         }
     }
 }

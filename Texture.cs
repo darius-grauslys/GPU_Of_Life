@@ -10,7 +10,6 @@ public class Texture : IDisposable
 
     public readonly int TEXTURE_HANDLE;
     private int _width = 10, _height = 10;
-    private int? _seed = null;
     public int Width
     {
         get => _width;
