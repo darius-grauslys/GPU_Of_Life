@@ -9,6 +9,9 @@ public class Grid_Configuration
     public int? Seed { get; set; }
 
     public string? Image__Path { get; set; }
+    public string? RLE__Path { get; set; }
+
+    public Shader.Invocation? Reset__Tool_Invocation { get; set; }
 
     public override string ToString()
         => $"grid_configuration(seed:{Seed} width:{Width} height:{Height})";

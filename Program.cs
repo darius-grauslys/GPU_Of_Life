@@ -34,12 +34,12 @@ public class Program : Test__Window //GameWindow
     private int VBO__CELL_POINTS;
 
     private Grid_Configuration GRID__CONFIGURATION;
-    private int GRID__WIDTH = 10, GRID__HEIGHT = 10;
+    private int GRID__WIDTH = 100, GRID__HEIGHT = 100;
     private int CELL__COUNT => GRID__WIDTH * GRID__HEIGHT;
     private int GRID__FRAMEBUFFER__COMPUTE;
     private int GRID__INDEX_COMPUTE = 0;
 
-    private Camera_2D GRID__CAMERA = new Camera_2D();
+    private readonly Camera_2D GRID__CAMERA;
 
     [AllowNull]
     private Texture GRID__TEXTURE__BASE;
@@ -88,6 +88,11 @@ public class Program : Test__Window //GameWindow
                     new System.IO.FileInfo("DefaultSkin2.png")
                 )
             );
+        _gwen_gui.Load();
+        _gwen_gui.Resize(Size);
+        UI = new Gwen_UI(_gwen_gui.Root);
+        _gwen_gui.Render();
+
 
         string? err = Private_Load__Grid_Compute_Shader();
 
@@ -97,6 +102,7 @@ public class Program : Test__Window //GameWindow
 
         if (err != null) { Close(); return; }
 
+        GRID__CAMERA = new Camera_2D();
         Private_Establish__Grid();
     }
 
@@ -130,13 +136,6 @@ public class Program : Test__Window //GameWindow
 
     protected override void OnLoad()
     {
-        _gwen_gui.Load();
-        _gwen_gui.Resize(Size);
-        UI = new Gwen_UI(_gwen_gui.Root);
-        _gwen_gui.Render();
-
-        GRID__CAMERA.Resize__Focal_Size(new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
-
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Rectangle/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Line/"));
@@ -161,6 +160,8 @@ public class Program : Test__Window //GameWindow
         UI.Loaded__Grid_Shader +=  p => Private_Load__Grid_Shader(p);
         UI.Loaded__Grid_Compute_Shader +=  p => Private_Load__Grid_Compute_Shader(p);
         UI.Loaded__Tool   +=  p => Private_Load__Tool(p);
+
+        UI.Request__Tool_Invocation +=  t => TOOL__REPOSITORY.Get__Tool(t)?.Get__Invocation();
 
         UI.Invoked__Load  +=  c => Private_Establish__Grid(c);
         UI.Invoked__New   +=  c => Private_Establish__Grid(c);
@@ -196,7 +197,7 @@ public class Program : Test__Window //GameWindow
         _gwen_gui.Resize(Size);
         _gwen_gui.Root.DoLayout();
         BASE__VIEWPORT.Resize(Size);
-        GRID__CAMERA.Resize__Focal_Size(new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
+        GRID__CAMERA.Resize__Focal_Size(new Vector2(GRID__WIDTH, GRID__HEIGHT), new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
     }
 
     protected override void OnRenderFrame(OpenTK.Windowing.Common.FrameEventArgs args)
@@ -225,7 +226,8 @@ public class Program : Test__Window //GameWindow
     protected override void OnMouseWheel(OpenTK.Windowing.Common.MouseWheelEventArgs e)
     {
         base.OnMouseWheel(e);
-        GRID__CAMERA.Process__Scroll(e);
+        if (!Is__UI_Busy)
+            GRID__CAMERA.Process__Scroll(e);
     }
 
     private string? Private_Load__Tool(string path)
@@ -373,8 +375,19 @@ public class Program : Test__Window //GameWindow
         GRID__IS_ACTIVE = false;
         GRID__IS_STEPPING = false;
         GRID__IS_INITIAL = true;
-        GRID__WIDTH  = grid_configuration?.Width  ?? 50;
-        GRID__HEIGHT = grid_configuration?.Height ?? 50;
+        if (grid_configuration != null)
+        {
+            GRID__WIDTH  = 
+                (grid_configuration.Width > 0) 
+                ? grid_configuration.Width 
+                : GRID__WIDTH
+                ;
+            GRID__HEIGHT = 
+                (grid_configuration.Height > 0)
+                ? grid_configuration.Height
+                :GRID__HEIGHT
+                ;
+        }
 
         Texture.Direct__Pixel_Initalizer base_pixel_initalizer;
         GRID__CONFIGURATION = grid_configuration ?? new Grid_Configuration();
@@ -436,6 +449,113 @@ public class Program : Test__Window //GameWindow
                     byte_buffer: byte_array
                 );
         }
+        else if (grid_configuration?.RLE__Path != null)
+        {
+            int? width = null, height = null;
+
+            string nums = "0123456789";
+            string num = "";
+
+            string[] rle = File.ReadAllLines(grid_configuration.RLE__Path);
+            string rle_code = "";
+            for(int i=0;i<rle.Length;i++)
+            {
+                if (width != null && height != null)
+                {
+                    rle_code += rle[i];
+                    continue;
+                }
+                if (rle[i].Length <= 0) continue;
+                if (rle[i][0] == '#') continue;
+
+                if (rle[i][0] == 'x')
+                {
+                    num = "";
+                    int parse_index = 0;
+                    while (parse_index < rle[i].Length)
+                    {
+                        if (nums.Contains(rle[i][parse_index]))
+                        {
+                            num += rle[i][parse_index];
+                        }
+                        else if (num != string.Empty)
+                        {
+                            if (width == null)
+                                width = int.Parse(num);
+                            else
+                                height = int.Parse(num);
+                            num = "";
+                        }
+                        if (width != null && height != null) break;
+                        parse_index++;
+                    }
+                }
+            }
+            num = "";
+
+            if (width == null || height == null) return;
+
+            if (GRID__WIDTH < width) GRID__WIDTH = (int)width;
+            if (GRID__HEIGHT < height) GRID__HEIGHT = (int)height;
+            byte[] byte_array = new byte[GRID__WIDTH * GRID__HEIGHT * 4];
+
+            int int_num = -1;
+            int x_init;
+            int x = x_init = (int)(GRID__WIDTH - (int)width) / 2;
+            int y = (GRID__HEIGHT-1) - (int)(GRID__HEIGHT - (int)height) / 2;
+            for(int i=0;i<rle_code.Length;i++)
+            {
+                while (nums.Contains(rle_code[i]))
+                {
+                    num += rle_code[i++];
+                }
+                int_num = 
+                    num != ""
+                    ? int.Parse(num)
+                    : 1
+                    ;
+                num = "";
+                if (rle_code[i] == '!') break;
+                if (rle_code[i] == '$')
+                {
+                    x = x_init;
+                    for(int j=0;j<int_num;j++)
+                    {
+                        y--;
+                    }
+                    continue;
+                }
+
+                byte state = 
+                    (rle_code[i] == 'b')
+                    ? (byte)0
+                    : (byte)255
+                    ;
+
+                bool stop = false;
+                for(int j=0;j<int_num;j++)
+                {
+                    int index = ((x + j + 1) * 4) + (y * GRID__WIDTH * 4);
+                    //if (stop = index % 300 < 20) break;
+                    byte_array[index    ] = state;
+                    byte_array[index + 1] = state;
+                    byte_array[index + 2] = state;
+                    byte_array[index + 3] = 1;
+                }
+                if (stop) break;
+                x += (int_num);
+            }
+
+            base_pixel_initalizer =
+                new Texture.Direct__Pixel_Initalizer
+                (
+                    4,
+                    PixelInternalFormat.Rgba,
+                    PixelFormat.Rgba,
+                    PixelType.UnsignedByte,
+                    byte_buffer: byte_array
+                );
+        }
         else
         {
             base_pixel_initalizer =
@@ -449,6 +569,7 @@ public class Program : Test__Window //GameWindow
                 );
         }
 
+        GRID__CAMERA.Resize__Focal_Size(new Vector2(GRID__WIDTH, GRID__HEIGHT), new Vector2(UI.GRID__WIDTH, UI.GRID__HEIGHT), Size);
         UI?.Set__Seed(GRID__CONFIGURATION.Seed);
 
         if (VAO__CELL_POINTS != 0)
@@ -572,6 +693,12 @@ public class Program : Test__Window //GameWindow
             GRID__TEXTURE__BASE.Reinitalize__Texture();
 
             HISTORY__TOOL_INVOCATION.Rebase(GRID__TEXTURE__BASE);
+
+            if (GRID__CONFIGURATION.Reset__Tool_Invocation != null)
+            {
+                HISTORY__TOOL_INVOCATION.Prepare(GRID__CONFIGURATION.Reset__Tool_Invocation);
+                HISTORY__TOOL_INVOCATION.Finish();
+            }
         }
         UI.Set__Seed(GRID__TEXTURE__BASE.Pixel_Buffer_Initalizer.Seed);
         

@@ -349,6 +349,7 @@ unbind_texture:
 
             if (byte_buffer != null)
             {
+                GL.PixelStore(PixelStoreParameter.UnpackAlignment, 1);
                 GL.TexImage2D
                 (
                     TextureTarget.Texture2D,

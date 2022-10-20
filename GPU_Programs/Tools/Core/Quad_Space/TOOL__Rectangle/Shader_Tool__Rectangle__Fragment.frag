@@ -2,9 +2,12 @@
 
 out vec4 output_color;
 
-uniform float life;
+uniform float red;
+uniform float green;
+uniform float blue;
+uniform float alpha;
 
 void main()
 {
-    output_color = vec4(life,0,0,1);
+    output_color = vec4(red,green,blue,alpha);
 }

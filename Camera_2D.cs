@@ -27,13 +27,15 @@ public class Camera_2D
     private float GRID__TRANSLATION__Y
         => GRID__TRANSLATION__POINT.Y;
 
-    public void Resize__Focal_Size(Vector2 ortho_size, Vector2 size)
+    public void Resize__Focal_Size(Vector2 ortho_size, Vector2 focal_size, Vector2 size)
     {
         FOCAL__ASPECT = size.X / size.Y;
-        FOCAL__SIZE = ortho_size;
+        FOCAL__SIZE = focal_size;
 
-        GRID__PROJECTION__WIDTH  = (ortho_size.X / (float)ortho_size.Y) + 1;
-        GRID__PROJECTION__HEIGHT = (ortho_size.Y / (float)ortho_size.X) + 1;
+        GRID__PROJECTION__WIDTH  = (ortho_size.X / (float)focal_size.X) + 1;
+        GRID__PROJECTION__HEIGHT = (ortho_size.Y / (float)focal_size.Y) + 1;
+        GRID__PROJECTION__WIDTH  = (focal_size.X / (float)ortho_size.X) + 1;
+        GRID__PROJECTION__HEIGHT = (focal_size.Y / (float)ortho_size.Y) + 1;
         GRID__PROJECTION = 
             Matrix4.CreateOrthographic
             (

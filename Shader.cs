@@ -7,6 +7,9 @@ namespace GPU_Of_Life;
 
 public partial class Shader
 {
+    public const string UNIFORM__NAME__MOUSE_ORIGIN = "mouse_origin";
+    public const string UNIFORM__NAME__MOUSE_LATEST = "mouse_position";
+
     public class Invocation
     {
         public readonly Shader Shader;
@@ -21,10 +24,22 @@ public partial class Shader
         public BlendingFactor Blend__Factor_Destination =
             BlendingFactor.Zero;
 
-        public Uniform__Vector2 Mouse_Position__Origin =
-            new Uniform__Vector2("mouse_origin", new Vector2(-1));
-        public Uniform__Vector2 Mouse_Position__Latest =
-            new Uniform__Vector2("mouse_position", new Vector2(-1));
+        public Uniform__Vector2__Clamped Mouse_Position__Origin =
+            new Uniform__Vector2__Clamped
+            (
+                "mouse_origin", 
+                new Vector2(-1),
+                new Vector2(-1),
+                new Vector2(1)
+            );
+        public Uniform__Vector2__Clamped Mouse_Position__Latest =
+            new Uniform__Vector2__Clamped
+            (
+                "mouse_position", 
+                new Vector2(-1),
+                new Vector2(-1),
+                new Vector2(1)
+            );
 
         public Dictionary<string, IUniform>? Uniform1__Int          { get; }
         public Dictionary<string, IUniform>? Uniform1__Unsigned_Int { get; }
@@ -122,7 +137,21 @@ public partial class Shader
                 Private__Set__Uniform(Uniform1__Double, uniform);
 
             if (uniform is IUniform<Vector2>)
+            {
+                if (uniform.Name == Mouse_Position__Origin.Name)
+                {
+                    Mouse_Position__Origin.Value =
+                        ((Shader.IUniform<Vector2>)uniform).Value;
+                    return;
+                }
+                if (uniform.Name == Mouse_Position__Latest.Name)
+                {
+                    Mouse_Position__Latest.Value =
+                        ((Shader.IUniform<Vector2>)uniform).Value;
+                    return;
+                }
                 Private__Set__Uniform(Uniform2__Vector2, uniform);
+            }
             if (uniform is IUniform<Vector2i>)
                 Private__Set__Uniform(Uniform2__Vector2i, uniform);
 
@@ -173,7 +202,7 @@ public partial class Shader
                 new System.Text.StringBuilder();
 
             sb.Append($"mouse: {Mouse_Position__Origin.Internal__Value} -- {Mouse_Position__Latest.Internal__Value}");
-            sb.Append($" vao: {VAO.VAO_Handle}:{VAO.VBO_Handle}");
+            sb.Append($" vao: {VAO?.VAO_Handle}:{VAO?.VBO_Handle}");
 
             return sb.ToString();
         }
@@ -228,7 +257,7 @@ public partial class Shader
     public int Get__Uniform(string uniform_name)
         => GL.GetUniformLocation(PROGRAM_HANDLE, uniform_name);
 
-    public virtual void Set__Uniform<T>(string uniform_name, T value)
+    public virtual void Bind__Uniform<T>(string uniform_name, T value)
     {
         Type uniform_type = typeof(T);
         int location = Get__Uniform(uniform_name);
@@ -242,24 +271,24 @@ public partial class Shader
         else throw new ArgumentException($"Uniforms of type: {uniform_type} are not currently supported.");
     }
 
-    public void Set__Uniform<T>(IUniform<T> uniform)
+    public void Bind__Uniform<T>(IUniform<T> uniform)
     where T : struct
     {
-        Set__Uniform<T>(uniform.Name, uniform.Value);
+        Bind__Uniform<T>(uniform.Name, uniform.Value);
     }
 
-    public void Set__Uniform(IUniform uniform)
+    public void Bind__Uniform(IUniform uniform)
     {
         if      (uniform.GetType().IsAssignableTo(typeof(IUniform<int>))    )
-            Set__Uniform((uniform as IUniform<int>)!);
+            Bind__Uniform((uniform as IUniform<int>)!);
         else if (uniform.GetType().IsAssignableTo(typeof(IUniform<uint>))   )
-            Set__Uniform((uniform as IUniform<uint>)!);
+            Bind__Uniform((uniform as IUniform<uint>)!);
         else if (uniform.GetType().IsAssignableTo(typeof(IUniform<float>))  )
-            Set__Uniform((uniform as IUniform<float>)!);
+            Bind__Uniform((uniform as IUniform<float>)!);
         else if (uniform.GetType().IsAssignableTo(typeof(IUniform<double>)) )
-            Set__Uniform((uniform as IUniform<double>)!);
+            Bind__Uniform((uniform as IUniform<double>)!);
         else if (uniform.GetType().IsAssignableTo(typeof(IUniform<Vector2>)))
-            Set__Uniform((uniform as IUniform<Vector2>)!);
+            Bind__Uniform((uniform as IUniform<Vector2>)!);
 
         else throw 
             new ArgumentException

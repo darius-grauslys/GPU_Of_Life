@@ -6,7 +6,22 @@ Blend__Factor_Source: Zero
 Blend__Factor_Destination: Zero
 Uniforms:
 - Type: float
-  Name: life
+  Name: red
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: blue
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: green
+  Value: 1
+  Min: 0
+  Max: 1
+- Type: float
+  Name: alpha
   Value: 1
   Min: 0
   Max: 1

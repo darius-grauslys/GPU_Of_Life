@@ -273,7 +273,13 @@ public class Tool
                     .Where(o => o is Shader.IUniform<T>)
                     .Cast<Shader.IUniform<T>>()
             )
+            {
+                if (uniform.Name == Shader.UNIFORM__NAME__MOUSE_ORIGIN)
+                    continue;
+                if (uniform.Name == Shader.UNIFORM__NAME__MOUSE_LATEST)
+                    continue;
                 target_dict.Add(uniform.Name, uniform);
+            }
         }
     }
 

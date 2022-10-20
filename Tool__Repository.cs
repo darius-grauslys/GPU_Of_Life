@@ -22,6 +22,13 @@ public class Tool__Repository
         }
     }
 
+    public Tool? Get__Tool(string tool_name)
+        =>
+        (RECORDED__TOOLS.ContainsKey(tool_name))
+        ? RECORDED__TOOLS[tool_name]
+        : null
+        ;
+
     public Tool Load__Tool(string path)
     {
         Tool tool = Tool.Load(path);

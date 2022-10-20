@@ -38,8 +38,8 @@ public class Shader_Invocation__Aggregator
         }
 
         invocation.Shader.Use();
-        invocation.Set__Uniform(invocation.Mouse_Position__Latest);
-        invocation.Set__Uniform(invocation.Mouse_Position__Origin);
+        invocation.Shader.Bind__Uniform(invocation.Mouse_Position__Latest);
+        invocation.Shader.Bind__Uniform(invocation.Mouse_Position__Origin);
 
         Private_Bind__Uniforms<int>     (invocation.Shader, invocation.Uniform1__Int);
         Private_Bind__Uniforms<uint>    (invocation.Shader, invocation.Uniform1__Unsigned_Int);
@@ -73,7 +73,7 @@ public class Shader_Invocation__Aggregator
 
         foreach(Shader.IUniform<T> uniform in uniforms.Values)
         {
-            shader.Set__Uniform(uniform);
+            shader.Bind__Uniform(uniform);
         }
     }
 }
