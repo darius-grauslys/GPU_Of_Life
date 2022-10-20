@@ -1,8 +1,38 @@
+/**************************************************************************
+ *
+ *    Copyright (c) 2022 Darius Grauslys
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining
+ *    a copy of this software and associated documentation files (the
+ *    "Software"), to deal in the Software without restriction, including
+ *    without limitation the rights to use, copy, modify, merge, publish,
+ *    distribute, sublicense, and/or sell copies of the Software, and to
+ *    permit persons to whom the Software is furnished to do so, subject to
+ *    the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be
+ *    included in all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ *    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ *    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ *    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 
 using OpenTK.Graphics.OpenGL;
 
 namespace GPU_Of_Life;
 
+/// <summary>
+/// A shader which takes a Texture2D as one of it's uniforms.
+/// Process will bind a framebuffer, a screen rect, and sample
+/// from the given Texture2D sample to the given Texture2D target.
+/// If the target is null, it will render to the screen.
+/// </summary>
 public class Shader__Post_Processor :
 Shader
 {
@@ -66,15 +96,16 @@ Shader
 
     public virtual void Process(Texture sample, Texture? target = null)
     {
-        GL.BindFramebuffer(FramebufferTarget.Framebuffer, FBO);
-        GL.FramebufferTexture2D
-        (
-            FramebufferTarget.Framebuffer,
-            FramebufferAttachment.ColorAttachment0,
-            TextureTarget.Texture2D,
-            target?.TEXTURE_HANDLE ?? 0,
-            0
-        );
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, target != null ? FBO : 0);
+        if (target != null)
+            GL.FramebufferTexture2D
+            (
+                FramebufferTarget.Framebuffer,
+                FramebufferAttachment.ColorAttachment0,
+                TextureTarget.Texture2D,
+                target.TEXTURE_HANDLE,
+                0
+            );
 
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture
@@ -88,6 +119,7 @@ Shader
 
         GL.BindVertexArray(SCREEN_RECT__VAO);
         GL.DrawElements(PrimitiveType.Triangles, SCREEN_RECT__ELEMENTS.Length, DrawElementsType.UnsignedInt, 0);
+        GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
     }
 
     protected virtual void Handle_Bind__Uniforms() { }

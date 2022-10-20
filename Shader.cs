@@ -1,3 +1,27 @@
+/**************************************************************************
+ *
+ *    Copyright (c) 2022 Darius Grauslys
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining
+ *    a copy of this software and associated documentation files (the
+ *    "Software"), to deal in the Software without restriction, including
+ *    without limitation the rights to use, copy, modify, merge, publish,
+ *    distribute, sublicense, and/or sell copies of the Software, and to
+ *    permit persons to whom the Software is furnished to do so, subject to
+ *    the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be
+ *    included in all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ *    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ *    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ *    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL;
@@ -5,6 +29,12 @@ using OpenTK.Mathematics;
 
 namespace GPU_Of_Life;
 
+/// <summary>
+/// A GLSL program that resides on the shader.
+/// Constructors include file paths and source strings
+/// for frag, vert, and geom shaders. For other shaders
+/// utilize the Shader.Builder helper.
+/// </summary>
 public partial class Shader
 {
     public const string UNIFORM__NAME__MOUSE_ORIGIN = "mouse_origin";
@@ -13,7 +43,7 @@ public partial class Shader
     public class Invocation
     {
         public readonly Shader Shader;
-        public Vertex_Array_Object VAO;
+        public Vertex_Array_Object? VAO;
         public int Primtive__Count;
 
         public bool Is__Using_Blending;

@@ -1,3 +1,27 @@
+/**************************************************************************
+ *
+ *    Copyright (c) 2022 Darius Grauslys
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining
+ *    a copy of this software and associated documentation files (the
+ *    "Software"), to deal in the Software without restriction, including
+ *    without limitation the rights to use, copy, modify, merge, publish,
+ *    distribute, sublicense, and/or sell copies of the Software, and to
+ *    permit persons to whom the Software is furnished to do so, subject to
+ *    the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be
+ *    included in all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ *    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ *    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ *    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 
 using System.Diagnostics.CodeAnalysis;
 using Gwen.Net.OpenTk;
@@ -15,12 +39,13 @@ namespace GPU_Of_Life;
 
 public class Program : Test__Window //GameWindow 
 {
-    private Viewport BASE__VIEWPORT;
+    private GLHelper.Viewport BASE__VIEWPORT;
 
     private readonly IGwenGui _gwen_gui;    
     [AllowNull]
     private Gwen_UI UI;
 
+    [AllowNull]
     private Shader SHADER__COMPUTE;
     [AllowNull]
     private Shader SHADER__DRAW;
@@ -33,12 +58,13 @@ public class Program : Test__Window //GameWindow
     private int VAO__CELL_POINTS;
     private int VBO__CELL_POINTS;
 
-    private Grid_Configuration GRID__CONFIGURATION;
+    private Grid_Configuration? GRID__CONFIGURATION;
     private int GRID__WIDTH = 100, GRID__HEIGHT = 100;
     private int CELL__COUNT => GRID__WIDTH * GRID__HEIGHT;
     private int GRID__FRAMEBUFFER__COMPUTE;
     private int GRID__INDEX_COMPUTE = 0;
 
+    [AllowNull]
     private readonly Camera_2D GRID__CAMERA;
 
     [AllowNull]
@@ -71,8 +97,8 @@ public class Program : Test__Window //GameWindow
     {
         GRID__FRAMEBUFFER__COMPUTE = GL.GenFramebuffer();
 
-        BASE__VIEWPORT = new Viewport(Size);
-        GLHelper.Push_Viewport(BASE__VIEWPORT);
+        BASE__VIEWPORT = new GLHelper.Viewport(Size);
+        GLHelper.Viewport.Push(BASE__VIEWPORT);
 
         _gwen_gui =
             GwenGuiFactory
@@ -136,6 +162,7 @@ public class Program : Test__Window //GameWindow
 
     protected override void OnLoad()
     {
+        //TODO: Load tools based on configuration file.
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Pencil/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Rectangle/"));
         TOOL__REPOSITORY.Load__Tool(Path.Combine(Directory.GetCurrentDirectory(), "GPU_Programs/Tools/Core/Quad_Space/TOOL__Line/"));
@@ -687,7 +714,7 @@ public class Program : Test__Window //GameWindow
     private void Private_Reset__Grid()
     {
         GRID__IS_INITIAL = true;
-        if (GRID__CONFIGURATION.Is__Using_New_Seed__For_Each_Reset)
+        if (GRID__CONFIGURATION?.Is__Using_New_Seed__For_Each_Reset ?? false)
         {
             GRID__TEXTURE__BASE.Pixel_Buffer_Initalizer.Seed = new Random().Next();
             GRID__TEXTURE__BASE.Reinitalize__Texture();
@@ -759,7 +786,7 @@ render_grid:
 
     private void Private_Compute__Grid()
     {
-        GLHelper.Push_Viewport(0,0,GRID__WIDTH,GRID__HEIGHT);
+        GLHelper.Viewport.Push(0,0,GRID__WIDTH,GRID__HEIGHT);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, GRID__FRAMEBUFFER__COMPUTE);
         GL.ActiveTexture(TextureUnit.Texture0);
         GL.BindTexture(TextureTarget.Texture2D, GRID__TEXTURE__READ.TEXTURE_HANDLE);
@@ -768,7 +795,7 @@ render_grid:
         GL.Uniform1(SHADER__COMPUTE.Get__Uniform("height"), (float)GRID__HEIGHT);
         GL.BindVertexArray(VAO__CELL_POINTS);
         GL.DrawArrays(PrimitiveType.Points, 0, CELL__COUNT);
-        GLHelper.Pop_Viewport();
+        GLHelper.Viewport.Pop();
 
         Private_Swap__Grids();
     }

@@ -4,6 +4,9 @@ using OpenTK.Mathematics;
 
 namespace GPU_Of_Life;
 
+/// <summary>
+/// Used to Composite multiple shader invocations onto a given texture.
+/// </summary>
 public class Shader_Invocation__Aggregator
 {
     private readonly int FRAMEBUFFER__AGGREGATION;
@@ -20,6 +23,9 @@ public class Shader_Invocation__Aggregator
         ref bool error
     )
     {
+        if(invocation.VAO == null)
+            throw new ArgumentException("VAO is not set.");
+
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, FRAMEBUFFER__AGGREGATION);
         GL.FramebufferTexture2D
         (

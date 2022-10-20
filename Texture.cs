@@ -1,9 +1,36 @@
+/**************************************************************************
+ *
+ *    Copyright (c) 2022 Darius Grauslys
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining
+ *    a copy of this software and associated documentation files (the
+ *    "Software"), to deal in the Software without restriction, including
+ *    without limitation the rights to use, copy, modify, merge, publish,
+ *    distribute, sublicense, and/or sell copies of the Software, and to
+ *    permit persons to whom the Software is furnished to do so, subject to
+ *    the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be
+ *    included in all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ *    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ *    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ *    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL;
 
 namespace GPU_Of_Life;
 
+/// <summary>
+/// Represents a Texture2D in an OpenGL context.
+/// </summary>
 public class Texture : IDisposable
 {
     private static int MAX_SIZE = -1;
@@ -162,6 +189,10 @@ public class Texture : IDisposable
         GL.DeleteTexture(TEXTURE_HANDLE);
     }
 
+    /// <summary>
+    /// A Pixel_Initalizer will initalize the pixel buffer data
+    /// of an associated Texture.
+    /// </summary>
     public abstract class Pixel_Initalizer
     {
         [AllowNull] //dep-injected
@@ -216,6 +247,10 @@ public class Texture : IDisposable
         );
     }
 
+    /// <summary>
+    /// Great for directly specifying the pixel buffer
+    /// or using a randomization.
+    /// </summary>
     public class Direct__Pixel_Initalizer :
     Pixel_Initalizer
     {

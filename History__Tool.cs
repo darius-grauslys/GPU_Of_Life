@@ -1,3 +1,27 @@
+/**************************************************************************
+ *
+ *    Copyright (c) 2022 Darius Grauslys
+ *
+ *    Permission is hereby granted, free of charge, to any person obtaining
+ *    a copy of this software and associated documentation files (the
+ *    "Software"), to deal in the Software without restriction, including
+ *    without limitation the rights to use, copy, modify, merge, publish,
+ *    distribute, sublicense, and/or sell copies of the Software, and to
+ *    permit persons to whom the Software is furnished to do so, subject to
+ *    the following conditions:
+ *
+ *    The above copyright notice and this permission notice shall be
+ *    included in all copies or substantial portions of the Software.
+ *
+ *    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ *    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *    NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+ *    LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+ *    OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+ *    WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ **************************************************************************/
 
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
@@ -105,19 +129,19 @@ public class History__Tool_Invocation
                 base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
             );
 
-        GLHelper.Push_Viewport(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
+        GLHelper.Viewport.Push(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
-        GLHelper.Pop_Viewport();
+        GLHelper.Viewport.Pop();
     }
 
     public void Rebase(Texture base_aggregation)
     {
         Clear();
-        GLHelper.Push_Viewport(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
+        GLHelper.Viewport.Push(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
-        GLHelper.Pop_Viewport();
+        GLHelper.Viewport.Pop();
     }
 
     public void Buffer__Mouse_Position(Vector2 mouse_position)
@@ -158,9 +182,10 @@ public class History__Tool_Invocation
 
     public override Texture Aggregate__Epochs(ref bool error)
     {
+        //TODO: handle null cases here properly.
         if (error) return null;
 
-        GLHelper.Push_Viewport(0,0,EPOCH__TEXTURES[0].Width,EPOCH__TEXTURES[0].Height);
+        GLHelper.Viewport.Push(0,0,EPOCH__TEXTURES[0].Width,EPOCH__TEXTURES[0].Height);
 
         for(int i=0;i<Quantity__Of__Epochs_Generated;i++)
         {
@@ -216,11 +241,11 @@ public class History__Tool_Invocation
                     ref error
                 );
 
-            GLHelper.Pop_Viewport();
+            GLHelper.Viewport.Pop();
             return EPOCH__TEXTURE__OVERLAY;
         }
 
-        GLHelper.Pop_Viewport();
+        GLHelper.Viewport.Pop();
 
         return EPOCH__TEXTURES[Index__Current];
     }
