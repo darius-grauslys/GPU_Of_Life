@@ -25,18 +25,19 @@
 
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
+using LibHistory;
 
 namespace GPU_Of_Life;
 
 public class History__Tool_Invocation
-: History<Shader.Invocation, Texture>
+: Epoch_History<Shader.Invocation>
 {
     private readonly History__Mouse_Position HISTORY__MOUSE_POSITION;
     public Vertex_Array_Object Aggregation__Tool_Positions(out int primitive_count)
     {
         if (Is__Requiring_Mouse_Position_History)
         {
-            primitive_count = HISTORY__MOUSE_POSITION.Quantity__Of__Records;
+            primitive_count = HISTORY__MOUSE_POSITION.Quantity_Of__Valid_Records;
             bool error = true;
             return HISTORY__MOUSE_POSITION.Aggregate__Epochs(ref error);
         }
@@ -52,9 +53,9 @@ public class History__Tool_Invocation
     private Shader_Invocation__Aggregator EPOCH__AGGREGATOR = 
         new Shader_Invocation__Aggregator();
 
-    internal bool Is__Genesis_Rolling { get; private set; }
     internal Texture EPOCH__TEXTURE__GENESIS;
     internal Texture EPOCH__TEXTURE__OVERLAY;
+    internal Texture EPOCH__TEXTURE__OUTPUT;
     internal Texture[] EPOCH__TEXTURES;
     public Texture Aggregation__Latest
         => EPOCH__TEXTURES[Index__Current];
@@ -96,7 +97,7 @@ public class History__Tool_Invocation
             .Buffer__Data(new float[] {0,0});
 
         HISTORY__MOUSE_POSITION =
-            new History__Mouse_Position(history__mouse__epoch_size, history__tool__epoch_count);
+            new History__Mouse_Position(history__mouse__epoch_size, history__mouse__epoch_count);
 
         EPOCH__WIDTH  = base_aggregation.Width;
         EPOCH__HEIGHT = base_aggregation.Height;
@@ -104,11 +105,19 @@ public class History__Tool_Invocation
         EPOCH__PIXEL_INTERNAL_FORMAT = base_aggregation.Pixel_Buffer_Initalizer.Internal_Format;
         EPOCH__PIXEL_FORMAT = base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format;
 
+        // EPOCH__TEXTURE__GENESIS =
+        //     new Texture
+        //     (
+        //         base_aggregation.Width, base_aggregation.Height,
+        //         base_aggregation.Pixel_Buffer_Initalizer
+        //     );
         EPOCH__TEXTURE__GENESIS =
             new Texture
             (
                 base_aggregation.Width, base_aggregation.Height,
-                base_aggregation.Pixel_Buffer_Initalizer
+                base_aggregation.Pixel_Buffer_Initalizer.Channel_Count,
+                base_aggregation.Pixel_Buffer_Initalizer.Internal_Format,
+                base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
             );
 
         EPOCH__TEXTURES[0] = 
@@ -129,6 +138,15 @@ public class History__Tool_Invocation
                 base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
             );
 
+        EPOCH__TEXTURE__OUTPUT =
+            new Texture
+            (
+                base_aggregation.Width, base_aggregation.Height,
+                base_aggregation.Pixel_Buffer_Initalizer.Channel_Count,
+                base_aggregation.Pixel_Buffer_Initalizer.Internal_Format,
+                base_aggregation.Pixel_Buffer_Initalizer.Pixel_Format
+            );
+
         GLHelper.Viewport.Push(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
@@ -140,19 +158,15 @@ public class History__Tool_Invocation
         Clear();
         GLHelper.Viewport.Push(0,0,EPOCH__TEXTURE__GENESIS.Width, EPOCH__TEXTURE__GENESIS.Height);
         SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURE__GENESIS);
-        SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
+        // SHADER__PASSTHROUGH.Process(base_aggregation, EPOCH__TEXTURES[0]);
         GLHelper.Viewport.Pop();
     }
 
     public void Buffer__Mouse_Position(Vector2 mouse_position)
     {
-        if (!Is__Preparing__Value) return;
+        if (!Is_Preparing__Value) return;
         if (!Is__Requiring_Mouse_Position_History) return;
-        bool finishing = HISTORY__MOUSE_POSITION.Is__Current_Epoch_Finished;
-
-        HISTORY__MOUSE_POSITION.Append(mouse_position);
-
-        if (finishing)
+        if (HISTORY__MOUSE_POSITION.Is_Needing__Consolidation)
         {
             bool error = false;
             Shader.Invocation clone = Preparing__Value.Clone();
@@ -161,11 +175,16 @@ public class History__Tool_Invocation
             Preparing__Value.VAO = aggregate_vao;
             Finish();
             Prepare(clone);
+            HISTORY__MOUSE_POSITION.Clear();
         }
+
+        HISTORY__MOUSE_POSITION.Append(mouse_position);
     }
 
     public override void Finish()
     {
+        if (Is_Needing__Consolidation)
+            Get__Consolidation();
         int primitive_count;
         Vertex_Array_Object invocation_vao =
             Aggregation__Tool_Positions(out primitive_count);
@@ -180,21 +199,23 @@ public class History__Tool_Invocation
         //TODO: impl, resize textures per epoch
     }
 
-    public override Texture Aggregate__Epochs(ref bool error)
+    public Texture Aggregate__Epochs(ref bool error)
     {
         //TODO: handle null cases here properly.
         if (error) return null;
 
         GLHelper.Viewport.Push(0,0,EPOCH__TEXTURES[0].Width,EPOCH__TEXTURES[0].Height);
-
-        for(int i=0;i<Quantity__Of__Epochs_Generated;i++)
+        
+        int epoch_index = -1;
+        int previous_epoch = -1;
+        for(int i=0;i<Quantity_Of__Epochs;i++)
         {
-            int epoch_index = Get__Index_From__Oldest_Epoch(i);
-            int previous_epoch = Get__Index_Offset_From__Oldest_Epoch(i, -1);
+            previous_epoch = epoch_index;
+            epoch_index = Get__Index_From__Oldest_Epoch(i);
+            IEpoch<Shader.Invocation> epoch = EPOCHS[epoch_index];
 
-            Epoch epoch = EPOCHS[epoch_index];
-
-            if (!epoch.Is__In_Need_Of__Update) continue;
+            if (epoch == null) continue;
+            if (!epoch.Is__With_New_Record_Changes) continue;
             
             SHADER__PASSTHROUGH.Process
             (
@@ -216,11 +237,10 @@ public class History__Tool_Invocation
 
                 if (error) return null;
             }
-            
-            epoch.Is__In_Need_Of__Update = false;
         }
+        Verify__Record_Changes();
 
-        if (Is__Preparing__Value)
+        if (Is_Preparing__Value)
         {
             SHADER__PASSTHROUGH.Process
             (
@@ -241,24 +261,56 @@ public class History__Tool_Invocation
                     ref error
                 );
 
+            SHADER__PASSTHROUGH.Process
+            (
+                EPOCH__TEXTURE__OVERLAY,
+                EPOCH__TEXTURE__OUTPUT
+            );
             GLHelper.Viewport.Pop();
-            return EPOCH__TEXTURE__OVERLAY;
+            // return EPOCH__TEXTURE__OVERLAY;
+            return EPOCH__TEXTURE__OUTPUT;
         }
 
+        SHADER__PASSTHROUGH.Process
+        (
+            EPOCH__TEXTURES[Index__Current],
+            EPOCH__TEXTURE__OUTPUT
+        );
         GLHelper.Viewport.Pop();
 
-        return EPOCH__TEXTURES[Index__Current];
+        // return EPOCH__TEXTURES[Index__Current];
+        return EPOCH__TEXTURE__OUTPUT;
     }
 
-    protected override void Handle_New__Epoch()
+    public override IEpoch<Shader.Invocation> Get__Consolidation() 
     {
-        Is__Genesis_Rolling =
-            Is__Genesis_Rolling
-            ||
-            Index__Current == 0
-            ;
+        // EPOCH__TEXTURE__GENESIS =
+        //     EPOCH__TEXTURES[Index__Next_Epoch];
+        // SHADER__PASSTHROUGH.Process(EPOCH__TEXTURES[Index__Next_Epoch], EPOCH__TEXTURE__GENESIS);
 
-        EPOCH__TEXTURES[Index__Current] = 
+        GLHelper.Viewport.Push(0,0,EPOCH__TEXTURES[0].Width,EPOCH__TEXTURES[0].Height);
+        EPOCH__TEXTURE__GENESIS =
+            EPOCH__TEXTURES[Index__Next_Epoch];
+        SHADER__PASSTHROUGH.Process(EPOCH__TEXTURES[Index__Next_Epoch], EPOCH__TEXTURE__GENESIS);
+        // foreach(Shader.Invocation invocation in Epoch__Following__Currently_Indexed!.Active__Values)
+        // {
+        //     bool error = false;
+        //     EPOCH__AGGREGATOR
+        //         .Aggregate__Invocation
+        //         (
+        //             invocation,
+        //             EPOCH__TEXTURE__GENESIS,
+        //             ref error
+        //         );
+        // }
+        GLHelper.Viewport.Pop();
+
+        return base.Get__Consolidation();
+    }
+
+    protected override IEpoch<Shader.Invocation> Handle_New__Epoch()
+    {
+        EPOCH__TEXTURES[Index__Next_Epoch] = 
             new Texture
             (
                 EPOCH__WIDTH,
@@ -267,9 +319,7 @@ public class History__Tool_Invocation
                 EPOCH__PIXEL_INTERNAL_FORMAT,
                 EPOCH__PIXEL_FORMAT
             );
-        
-        if (Is__Genesis_Rolling)
-            EPOCH__TEXTURE__GENESIS =
-                EPOCH__TEXTURES[Get__Index_From__Oldest_Epoch(0)];
+
+        return new Epoch<Shader.Invocation>(Max_Quantity_Of__Records_Per_Epoch);
     }
 }
