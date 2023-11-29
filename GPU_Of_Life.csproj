@@ -1,10 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\GitRepos\Gwen.Net\Gwen.Net.OpenTk\Gwen.Net.OpenTk.csproj" />
-    <ProjectReference Include="..\..\GitRepos\Gwen.Net\Gwen.Net\Gwen.Net.csproj" />
-    <ProjectReference Include="..\Gwen.Net\Gwen.Net\Gwen.Net.csproj" />
-    <ProjectReference Include="..\Gwen.Net\Gwen.Net.OpenTk\Gwen.Net.OpenTk.csproj" />
+    <ProjectReference Include="..\..\..\GitRepos\Gwen.Net\Gwen.Net.OpenTk\Gwen.Net.OpenTk.csproj" />
+    <ProjectReference Include="..\..\..\GitRepos\Gwen.Net\Gwen.Net\Gwen.Net.csproj" />
+    <ProjectReference Include="..\..\Gwen.Net\Gwen.Net\Gwen.Net.csproj" />
+    <ProjectReference Include="..\..\Gwen.Net\Gwen.Net.OpenTk\Gwen.Net.OpenTk.csproj" />
   </ItemGroup>
 
   <ItemGroup>
