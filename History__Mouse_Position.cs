@@ -26,11 +26,12 @@
 using System.Diagnostics.CodeAnalysis;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
+using LibHistory;
 
 namespace GPU_Of_Life;
 
-public class History__Mouse_Position :
-History<Vector2, Vertex_Array_Object>
+public class History__Mouse_Position 
+: Epoch_History<Vector2>
 {
     [AllowNull]
     private Vertex_Array_Object MOUSE_POSITION__VAO;
@@ -49,21 +50,22 @@ History<Vector2, Vertex_Array_Object>
         Private_Establish__VAO();
     }
 
-    public override Vertex_Array_Object Aggregate__Epochs(ref bool error)
+    public Vertex_Array_Object Aggregate__Epochs(ref bool error)
     {
-        if (Quantity__Of__Epochs_Generated == 0) return MOUSE_POSITION__VAO;
+        if (Quantity_Of__Epochs == 0) return MOUSE_POSITION__VAO;
 
-        for(int i=0;i<Quantity__Of__Epochs_Generated;i++)
+        for(int i=0;i<Quantity_Of__Epochs;i++)
         {
             int epoch_index =
                 Get__Index_From__Oldest_Epoch(i);
+            if (EPOCHS[epoch_index] == null || EPOCHS[epoch_index].Is__Epoch_Empty) continue;
 
             MOUSE_POSITION__VAO
             .Buffer__Data
             (
-                EPOCHS[epoch_index].EPOCH__VALUES,
-                new IntPtr(Vector2.SizeInBytes * EPOCH__SIZE * i),
-                Quantity__Of__Records
+                EPOCHS[epoch_index].Active__Values.ToArray(),
+                new IntPtr(Vector2.SizeInBytes * Max_Quantity_Of__Records_Per_Epoch * i),
+                EPOCHS[epoch_index].Quantity_Of__Valid_Records
             );
         }
 
@@ -81,8 +83,13 @@ History<Vector2, Vertex_Array_Object>
         MOUSE_POSITION__VAO =
             new Vertex_Array_Object
             (
-                EPOCH__SIZE * EPOCH__COUNT * Vector2.SizeInBytes,
+                Max_Quantity_Of__Records_Per_Epoch * Max_Quantity_Of__Epochs * Vector2.SizeInBytes,
                 new Vertex_Array_Object.Attribute(2, VertexAttribPointerType.Float, 2 * sizeof(float), 0)
             );
+    }
+
+    protected override IEpoch<Vector2> Handle_New__Epoch()
+    {
+        return new Epoch<Vector2>(Max_Quantity_Of__Records_Per_Epoch);
     }
 }

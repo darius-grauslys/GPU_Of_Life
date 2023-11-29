@@ -149,13 +149,13 @@ public class Program : Test__Window //GameWindow
                 break;
             case Keys.U:
                 if (e.Modifiers == KeyModifiers.Control || e.Control)
-                    HISTORY__TOOL_INVOCATION.Undo();
-                    //Private_Undo__Tool();
+                    if (HISTORY__TOOL_INVOCATION.Is_Able_To__Undo)
+                        HISTORY__TOOL_INVOCATION.Undo();
                 break;
             case Keys.R:
                 if (e.Modifiers == KeyModifiers.Control || e.Control)
-                    HISTORY__TOOL_INVOCATION.Redo();
-                    //Private_Redo__Tool();
+                    if (HISTORY__TOOL_INVOCATION.Is_Able_To__Redo)
+                        HISTORY__TOOL_INVOCATION.Redo();
                 break;
         }
     }
@@ -349,7 +349,7 @@ public class Program : Test__Window //GameWindow
 
         if (!MouseState.IsButtonDown(MouseButton.Left))
         {
-            if (HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+            if (HISTORY__TOOL_INVOCATION.Is_Preparing__Value)
             {
                 HISTORY__TOOL_INVOCATION.Finish();
             }
@@ -378,7 +378,7 @@ public class Program : Test__Window //GameWindow
                 HISTORY__TOOL_INVOCATION.Buffer__Mouse_Position(tool_position.Xy);
         }
 
-        if (!HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+        if (!HISTORY__TOOL_INVOCATION.Is_Preparing__Value)
         {
             Shader.Invocation invocation =
                 TOOL__REPOSITORY.TOOL__ACTIVE__CONFIGURATION!.Clone()!;
@@ -642,8 +642,8 @@ public class Program : Test__Window //GameWindow
             new History__Tool_Invocation
             (
                 GRID__TEXTURE__BASE, 
-                100, 10,
-                100, 10
+                50, 10,
+                100, 1
             );
         if (TOOL__REPOSITORY.TOOL__ACTIVE?.Is__Requiring__Mouse_Position_History ?? false)
             HISTORY__TOOL_INVOCATION.Is__Requiring_Mouse_Position_History = true;
@@ -776,7 +776,7 @@ render_grid:
     private void Private_Render__Tool()
     {
         bool error = false;
-        if (HISTORY__TOOL_INVOCATION.Is__In_Need_Of__Update || HISTORY__TOOL_INVOCATION.Is__Preparing__Value)
+        if (HISTORY__TOOL_INVOCATION.Is__In_Need_Of__Update || HISTORY__TOOL_INVOCATION.Is_Preparing__Value)
         {
             GRID__TEXTURE__BASE =
                 HISTORY__TOOL_INVOCATION.Aggregate__Epochs(ref error);
